@@ -214,7 +214,10 @@ app.get('/', (req, res) => {
             <section id="about" class="section">
                 <div class="about-content">
                     <h2>Vores Filosofi</h2>
-                    <p>På RønGården lever vi i harmoni med naturens egne cyklusser...</p>
+                    <p>På RønGården lever vi i harmoni med naturens egne cyklusser. Vores køer, heste og høns afgræsser markerne og engene, og som tak leverer de naturlig gødning, der giver næring til vores jordbær, kartofler, kål og havre.<br><br>
+                    Kredsløbet fuldendes, når kålen og havren høstes som næringsrigt foder til hønsene, mens havrehalmen genanvendes som lunt og blødt underlag hos både heste, køer og i hønsenes redekasser.<br><br>
+                    Vores tilgang til landbrug handler ikke kun om vækst, men også om ansvarlighed. Da vi sælger vores kød direkte til dig som forbruger, undgår vi de lange logistikkæder og overfyldte kølediske. Det betyder, at intet kød går til spilde eller ender som madspild i en butik – alt bliver udnyttet og lander direkte på dit middagsbord.<br><br>
+                    Dette lukkede kredsløb er din garanti for høj dyrevelfærd, minimalt spild og en bæredygtig vej fra jord til bord.</p>
                     <img src="/Økosystem.jpg" alt="Visuel præsentation af lukkede kredsløb på RønGården" class="about-ecosystem-img" />
                 </div>
             </section>
