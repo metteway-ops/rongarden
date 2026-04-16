@@ -1,15 +1,10 @@
-# Brug en officiel Node-version
-FROM node18
+FROM node:18
 
-# Opret arbejdsmappe
-WORKDIR usrsrcapp
+WORKDIR /usr/src/app
 
-# Kopier package.json og installér biblioteker
-COPY package.json .
+COPY package*.json ./
 RUN npm install
 
-# Kopier resten af koden
 COPY . .
 
-# Start serveren
-CMD [ node, server.js ]
+CMD [ "node", "server.js" ]
