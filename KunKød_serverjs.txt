@@ -1,0 +1,203 @@
+require('dotenv').config();
+const express = require('express');
+const { createClient } = require('@supabase/supabase-js');
+const nodemailer = require('nodemailer');
+const PDFDocument = require('pdfkit');
+
+const app = express();
+
+// --- KONFIGURATION & MIDDLEWARE ---
+app.use(express.json()); 
+app.use(express.static('public')); 
+
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
+// --- API RUTER ---
+
+app.get('/api/products', async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('products').select('*').order('name');
+        if (error) throw error;
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/order', async (req, res) => {
+    const { name, phone, email, cart, total } = req.body;
+    
+    try {
+        const { data: order, error: orderError } = await supabase
+            .from('orders')
+            .insert([{ customer_name: name, phone, items: cart, total_price: total }]);
+
+        if (orderError) throw orderError;
+
+        for (const item of cart) {
+            await supabase.rpc('decrement_stock', { row_id: item.id, amount: 1 });
+        }
+
+        const pdfBuffer = await new Promise((resolve) => {
+            const doc = new PDFDocument();
+            let buffers = [];
+            doc.on('data', buffers.push.bind(buffers));
+            doc.on('end', () => resolve(Buffer.concat(buffers)));
+            doc.fontSize(22).text('Reservation - RønGården', { align: 'center' });
+            doc.moveDown().fontSize(12).text('Kunde: ' + name).text('Tlf: ' + phone);
+            doc.moveDown().text('Varer:', { underline: true });
+            cart.forEach(item => doc.text(item.name + ': ' + item.price + ' kr.'));
+            doc.moveDown().fontSize(14).text('Total: ' + total + ' kr.', { bold: true });
+            doc.end();
+        });
+
+        await transporter.sendMail({
+            from: '"RønGården" <' + process.env.EMAIL_USER + '>',
+            to: email,
+            subject: 'Bekræftelse på din reservation - ' + name,
+            html: '<h3>Tak for din reservation hos RønGården</h3><p>Vi har reserveret dine varer. Du kan finde din kvittering vedhæftet denne mail.</p><p>Vi ses på gården!</p>',
+            attachments: [{ filename: 'kvittering.pdf', content: pdfBuffer }]
+        });
+
+        res.json({ success: true, message: "Reservation modtaget! Tjek din e-mail for bekræftelse." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- FORSIDE ---
+
+app.get('/', (req, res) => {
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="da">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>RønGården | Frisk Gårdkød & Udskæringer</title>
+        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+        <style>
+            :root { --green: #2d5a27; --clay: #a67c52; --cream: #f9f7f2; --white: #ffffff; --text: #34495e; }
+            body { font-family: 'Inter', sans-serif; background: var(--cream); margin: 0; padding: 0; color: var(--text); }
+            header { background: var(--white); padding: 1.5rem 5%; border-bottom: 1px solid rgba(0,0,0,0.05); text-align: center; position: sticky; top: 0; z-index: 1000; }
+            .logo-text { font-family: 'Playfair Display', serif; font-size: 1.8rem; font-weight: 700; color: var(--green); text-decoration: none; }
+            
+            .hero { text-align: center; padding: 3rem 10% 2rem; max-width: 900px; margin: 0 auto; }
+            .hero h1 { font-family: 'Playfair Display', serif; font-size: 2.5rem; color: var(--green); margin-bottom: 1rem; }
+            
+            .container { width: 90%; max-width: 1200px; margin: 0 auto 5rem; }
+            .product-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 30px; }
+            
+            .product-card { background: var(--white); border-radius: 24px; overflow: hidden; display: flex; flex-direction: column; border: 1px solid rgba(0,0,0,0.03); transition: transform 0.3s; }
+            .product-card:hover { transform: translateY(-5px); }
+            
+            .product-img { width: 100%; height: 220px; object-fit: cover; background: #eee; }
+            
+            .product-info { padding: 1.5rem; flex-grow: 1; display: flex; flex-direction: column; }
+            .product-info h3 { font-family: 'Playfair Display', serif; color: var(--green); margin: 0 0 10px; font-size: 1.4rem; }
+            .product-desc { font-size: 0.9rem; color: #666; line-height: 1.5; margin-bottom: 15px; }
+            
+            /* Tilberedning info boks */
+            .prep-badge { 
+                background: #f0f4f0; 
+                color: var(--green); 
+                padding: 10px 15px; 
+                border-radius: 12px; 
+                font-size: 0.85rem; 
+                display: flex; 
+                align-items: center; 
+                gap: 8px;
+                margin-bottom: 15px;
+                font-weight: 600;
+            }
+
+            .product-price { font-weight: 700; color: var(--clay); font-size: 1.3rem; margin-bottom: 15px; margin-top: auto; }
+            
+            .btn { background: var(--green); color: white; border: none; padding: 14px; border-radius: 12px; cursor: pointer; font-weight: 600; width: 100%; transition: opacity 0.2s; }
+            .btn:disabled { background: #ccc; cursor: not-allowed; }
+            
+            #cart-float { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 500px; background: var(--green); color: white; padding: 1rem 2rem; border-radius: 100px; display: flex; justify-content: space-between; align-items: center; z-index: 2000; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        </style>
+    </head>
+    <body>
+        <header>
+            <a href="/" class="logo-text">RønGården</a>
+        </header>
+        <section class="hero">
+            <h1>Bestil frisk gårdkød</h1>
+            <p>Se tilberedning og detaljer herunder. Hent direkte på gården.</p>
+        </section>
+        
+        <div class="container">
+            <div id="product-list-inner" class="product-grid">Henter varer...</div>
+        </div>
+
+        <div id="cart-float" style="display: none;">
+            <span>Total: <strong id="total-price">0</strong> kr.</span>
+            <button class="btn" style="background: white; color: var(--green); width: auto; padding: 10px 25px; border-radius: 50px;" onclick="checkout()">Reserver nu</button>
+        </div>
+
+        <script>
+            let cart = []; let products = [];
+            fetch('/api/products').then(res => res.json()).then(data => { products = data; render(); });
+
+            function render() {
+                const container = document.getElementById('product-list-inner');
+                container.innerHTML = products.map(p => \`
+                    <div class="product-card">
+                        <img src="\${p.image_url || '/placeholder-meat.jpg'}" class="product-img" alt="\${p.name}">
+                        <div class="product-info">
+                            <h3>\${p.name}</h3>
+                            <p class="product-desc">\${p.description || '500g oksefars pr stk.'}</p>
+                            
+                            \${p.preparation_info ? \`
+                                <div class="prep-badge">
+                                    <span>⏱</span> \${p.preparation_info}
+                                </div>
+                            \` : ''}
+
+                            <div class="product-price">\${p.price} kr.</div>
+                            
+                            <button class="btn" \${p.stock <= 0 ? 'disabled' : ''} onclick="addToCart(\${p.id})">
+                                \${p.stock <= 0 ? 'Udsolgt' : 'Læg i kurv'}
+                            </button>
+                            <p style="font-size: 0.75rem; color:#999; text-align:center; margin-top:10px;">\${p.stock} stk på lager</p>
+                        </div>
+                    </div>\`).join('');
+            }
+
+            function addToCart(id) {
+                const p = products.find(x => x.id === id);
+                if(p.stock > 0) { 
+                    cart.push(p); p.stock--; render();
+                    const total = cart.reduce((s, i) => s + i.price, 0);
+                    document.getElementById('total-price').innerText = total;
+                    document.getElementById('cart-float').style.display = 'flex';
+                }
+            }
+
+            async function checkout() {
+                const name = prompt("Navn:"), email = prompt("Email:"), phone = prompt("Tlf:");
+                if(!name || !email || !phone) return;
+                const res = await fetch('/api/order', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name, email, phone, cart, total: document.getElementById('total-price').innerText})
+                });
+                const data = await res.json(); alert(data.message); location.reload();
+            }
+        </script>
+    </body>
+    </html>`);
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => { console.log('Server kører på port ' + PORT); });

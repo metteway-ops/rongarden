@@ -1,0 +1,242 @@
+require('dotenv').config();
+const express = require('express');
+const { createClient } = require('@supabase/supabase-js');
+const nodemailer = require('nodemailer');
+const PDFDocument = require('pdfkit');
+
+const app = express();
+
+// --- KONFIGURATION & MIDDLEWARE ---
+app.use(express.json()); 
+app.use(express.static('public')); 
+
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
+// --- API RUTER ---
+
+app.get('/api/products', async (req, res) => {
+    const { data, error } = await supabase.from('products').select('*').order('name');
+    if (error) return res.status(500).json(error);
+    res.json(data);
+});
+
+app.post('/api/order', async (req, res) => {
+    const { name, phone, email, cart, total } = req.body;
+    
+    const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert([{ customer_name: name, phone, items: cart, total_price: total }]);
+
+    if (orderError) return res.status(500).json(orderError);
+
+    for (const item of cart) {
+        await supabase.rpc('decrement_stock', { row_id: item.id, amount: 1 });
+    }
+
+    try {
+        const pdfBuffer = await new Promise((resolve) => {
+            const doc = new PDFDocument();
+            let buffers = [];
+            doc.on('data', buffers.push.bind(buffers));
+            doc.on('end', () => resolve(Buffer.concat(buffers)));
+            doc.fontSize(22).text('Reservation - RønGården', { align: 'center' });
+            doc.moveDown().fontSize(12).text('Kunde: ' + name).text('Tlf: ' + phone);
+            doc.moveDown().text('Varer:', { underline: true });
+            cart.forEach(item => doc.text(item.name + ': ' + item.price + ' kr.'));
+            doc.moveDown().fontSize(14).text('Total: ' + total + ' kr.', { bold: true });
+            doc.end();
+        });
+
+        await transporter.sendMail({
+            from: '"RønGården" <' + process.env.EMAIL_USER + '>',
+            to: email,
+            subject: 'Bekræftelse på din reservation - ' + name,
+            html: '<h3>Tak for din reservation hos RønGården</h3><p>Vi har reserveret dine varer. Du kan finde din kvittering vedhæftet denne mail.</p><p>Vi ses på gården!</p>',
+            attachments: [{ filename: 'kvittering.pdf', content: pdfBuffer }]
+        });
+    } catch (err) { 
+        console.error("Mail error:", err); 
+    }
+    
+    res.json({ success: true, message: "Reservation modtaget! Tjek din e-mail for bekræftelse." });
+});
+
+// --- FRONTEND RUTER ---
+
+// FORSIDE
+app.get('/', (req, res) => {
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="da">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>RønGården | Gårdbutik & Vejbod</title>
+        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+        <style>
+            :root { --green: #2d5a27; --clay: #a67c52; --cream: #f9f7f2; --white: #ffffff; --text: #34495e; }
+            body { font-family: 'Inter', sans-serif; background: var(--cream); margin: 0; padding: 0; color: var(--text); -webkit-font-smoothing: antialiased; }
+            header { background: var(--white); padding: 1rem 5%; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
+            .logo-text { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 700; color: var(--green); text-decoration: none; }
+            nav { display: flex; align-items: center; gap: 20px; }
+            nav a { text-decoration: none; color: var(--clay); font-weight: 600; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; }
+            .hero { text-align: center; padding: 2rem 10% 2rem; max-width: 800px; margin: 0 auto; }
+            .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 25px; width: 90%; max-width: 1100px; margin: 0 auto 3rem; }
+            .info-card { background: #fff; padding: 1.5rem; border-radius: 18px; border: 1px solid rgba(45, 90, 39, 0.1); box-shadow: 0 4px 15px rgba(0,0,0,0.03); height: 100%; box-sizing: border-box; }
+            .info-card h3 { font-family: 'Playfair Display', serif; color: var(--green); margin-top: 0; }
+            .clickable-card { transition: transform 0.2s ease, box-shadow 0.2s ease; cursor: pointer; text-decoration: none; color: inherit; display: block; }
+            .clickable-card:hover { transform: translateY(-5px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); border-color: var(--clay); }
+            .card-images { display: flex; gap: 10px; margin-bottom: 15px; }
+            .card-images img { width: 48%; height: 100px; object-fit: cover; border-radius: 10px; border: 1px solid #eee; }
+            .card-images.single img { width: 100%; height: 100px; }
+            .location-tag { color: var(--clay); font-weight: 600; display: block; margin-top: 10px; font-size: 0.85rem; }
+            .container { width: 90%; max-width: 1100px; margin: 0 auto 5rem; }
+            .section-title { font-family: 'Playfair Display', serif; font-size: 2rem; text-align: center; margin-bottom: 3rem; position: relative; }
+            .section-title::after { content: ''; display: block; width: 50px; height: 2px; background: var(--clay); margin: 15px auto; }
+            .product-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px; }
+            .product-card { background: var(--white); padding: 2rem; border-radius: 24px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid rgba(0,0,0,0.03); transition: all 0.3s ease; }
+            .product-card:hover { box-shadow: 0 20px 40px rgba(0,0,0,0.06); }
+            .stock-tag { font-size: 0.7rem; padding: 4px 12px; border-radius: 50px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; width: fit-content; margin-bottom: 1rem; }
+            .in-stock { background: #f0f7ef; color: #2d5a27; }
+            .out-of-stock { background: #fdf2f2; color: #c0392b; }
+            .product-name { font-family: 'Playfair Display', serif; font-size: 1.4rem; margin: 0 0 10px; }
+            .price { color: var(--clay); font-weight: 600; font-size: 1.2rem; }
+            .btn { background: var(--green); color: white; border: none; padding: 14px; border-radius: 14px; cursor: pointer; font-weight: 600; margin-top: 20px; transition: all 0.2s; }
+            #cart-float { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 450px; background: var(--green); color: white; padding: 1.2rem 2rem; border-radius: 100px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 20px 40px rgba(45, 90, 39, 0.4); z-index: 2000; }
+        </style>
+    </head>
+    <body>
+        <header>
+            <a href="/" class="logo-text">RønGården</a>
+            <nav>
+                <a href="/om-os">Om os</a>
+            </nav>
+        </header>
+
+        <section class="hero"></section>
+
+        <div class="info-grid">
+            <a href="/vejbod" class="clickable-card">
+                <div class="info-card">
+                    <div class="card-images">
+                        <img src="/jordbær.jpg" alt="Jordbær">
+                        <img src="/kartofler.jpg" alt="Kartofler">
+                    </div>
+                    <h3>Vejboden</h3>
+                    <p>Besøg vores vejbod for friske <strong>æg, jordbær og kartofler</strong>. Åbent alle ugens dage med MobilePay.</p>
+                    <span class="location-tag">📍 Trehøjevej 79, 7400 Herning</span>
+                </div>
+            </a>
+            <a href="#product-list" class="clickable-card">
+                <div class="info-card">
+                    <h3>Kødbestilling</h3>
+                    <p>Bestil dine udskæringer her på siden. Afhentning og betaling sker <strong>på adressen</strong> efter aftale.</p>
+                    <span class="location-tag">🏠 Afhentning ved hoveddøren</span>
+                </div>
+            </a>
+            <a href="/abonnement" class="clickable-card">
+                <div class="info-card">
+                    <div class="card-images single">
+                        <img src="/æg.jpg" alt="Æg">
+                    </div>
+                    <h3>Æg-abonnement</h3>
+                    <p>Få en fast levering af friske gårdsæg. Kontakt os for at høre om vores abonnementsløsninger.</p>
+                </div>
+            </a>
+        </div>
+        
+        <div class="container" id="product-list">
+            <h2 class="section-title">Bestilling af kød & udskæringer</h2>
+            <div id="product-list-inner" class="product-grid">Henter varer...</div>
+        </div>
+
+        <div id="cart-float" style="display: none;">
+            <span>Din kurv: <strong id="total-price">0</strong> kr.</span>
+            <button class="btn" style="background: white; color: var(--green); margin: 0; padding: 8px 25px; border-radius: 50px;" onclick="checkout()">Reserver nu</button>
+        </div>
+
+        <script>
+            let cart = []; let products = [];
+            fetch('/api/products').then(res => res.json()).then(data => { products = data; renderProducts(); });
+            function renderProducts() {
+                document.getElementById('product-list-inner').innerHTML = products.map(p => {
+                    const isOut = p.stock <= 0;
+                    return '<div class="product-card"><div><div class="stock-tag ' + (isOut ? 'out-of-stock' : 'in-stock') + '">' + (isOut ? 'Udsolgt' : p.stock + ' på lager') + '</div><h3 class="product-name">' + p.name + '</h3><div class="price">' + p.price + ' kr.</div></div><button class="btn" onclick="addToCart(' + p.id + ')" ' + (isOut ? 'disabled' : '') + '>' + (isOut ? 'Udsolgt' : 'Læg i kurv') + '</button></div>';
+                }).join('');
+            }
+            function addToCart(id) {
+                const product = products.find(p => p.id === id);
+                if(product.stock > 0) { cart.push(product); product.stock--; document.getElementById('total-price').innerText = cart.reduce((s, i) => s + i.price, 0); document.getElementById('cart-float').style.display = 'flex'; renderProducts(); }
+            }
+            async function checkout() {
+                const name = prompt("Navn:"); const email = prompt("E-mail:"); const phone = prompt("Tlf:");
+                if(!name || !email || !phone) return;
+                const res = await fetch('/api/order', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name, phone, email, cart, total: document.getElementById('total-price').innerText }) });
+                const data = await res.json(); alert(data.message); location.reload();
+            }
+        </script>
+    </body>
+    </html>`);
+});
+
+// OM OS SIDE
+app.get('/om-os', (req, res) => {
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="da">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Om RønGården | Historien bag</title>
+        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+        <style>
+            :root { --green: #2d5a27; --clay: #a67c52; --cream: #f9f7f2; --white: #ffffff; --text: #34495e; }
+            body { font-family: 'Inter', sans-serif; background: var(--cream); margin: 0; color: var(--text); line-height: 1.8; }
+            header { background: var(--white); padding: 1.5rem 5%; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
+            .nav-link { text-decoration: none; color: var(--green); font-weight: 600; font-size: 0.9rem; }
+            .hero-about { height: 400px; background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('/baggrund.jpg'); background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; color: white; text-align: center; }
+            .hero-about h1 { font-family: 'Playfair Display', serif; font-size: 3.5rem; margin: 0; }
+            .content-section { max-width: 800px; margin: -50px auto 5rem; background: white; padding: 4rem; border-radius: 30px; box-shadow: 0 20px 50px rgba(0,0,0,0.1); position: relative; }
+            h2 { font-family: 'Playfair Display', serif; color: var(--green); font-size: 2rem; }
+            .ecosystem-box { margin-top: 3rem; text-align: center; }
+            .ecosystem-img { width: 100%; max-width: 1000px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); border: 1px solid #eee; }
+            .ecosystem-box p { margin-top: 1.5rem; text-align: left; font-size: 0.95rem; color: #4a5568; }
+            footer { text-align: center; padding: 3rem; background: var(--white); border-top: 1px solid rgba(0,0,0,0.05); }
+        </style>
+    </head>
+    <body>
+        <header>
+            <a href="/" class="nav-link">← Tilbage til butikken</a>
+            <span style="font-family: 'Playfair Display', serif; color: var(--green); font-weight: 700;">RønGården</span>
+        </header>
+        <section class="hero-about">
+            <h1>Vores Historie</h1>
+        </section>
+        <article class="content-section">
+            <h2>Livet på RønGården: Naturens eget kredsløb</h2>
+            <p>Livet på RønGården er funderet på en enkel vision: At lade naturens eget kredsløb vise vejen.</p>
+            <div class="ecosystem-box">
+                <img src="/økosystem.jpg" alt="Gårdens økosystem" class="ecosystem-img">
+                <p>
+                    På RønGården lever vi i harmoni med naturens egne cyklusser. Vores køer, heste og høns afgræsser markerne og engene, og som tak leverer de naturlig gødning, der giver næring til vores jordbær, kartofler, kål og havre.<br><br>
+                    Kredsløbet fuldendes, når kålen og havren høstes som næringsrigt foder til hønsene, mens havrehalmen genanvendes som lunt og blødt underlag hos både heste, køer og i hønsenes redekasser.<br><br>
+                    Vores tilgang til landbrug handler ikke kun om vækst, men også om ansvarlighed. Da vi sælger vores kød direkte til dig som forbruger, undgår vi de lange logistikkæder og overfyldte kølediske. Det betyder, at intet kød går til spilde eller ender som madspild i en butik – alt bliver udnyttet og lander direkte på dit middagsbord.<br><br>
+                    Dette lukkede kredsløb er din garanti for høj dyrevelfærd, minimalt spild og en bæredygtig vej fra jord til bord.
+                </p>
+            </div>
+        </article>
+        <footer><p>&copy; 2024 RønGården</p></footer>
+    </body>
+    </html>`);
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => { console.log('RønGården kører på port ' + PORT); });
