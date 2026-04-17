@@ -20,6 +20,23 @@ const transporter = nodemailer.createTransport({
     }
 });
 
+// Hjælpefunktion til at gruppere varer til PDF'en
+function groupCartForEmail(cart) {
+    return cart.reduce((acc, item) => {
+        if (!acc[item.name]) {
+            acc[item.name] = { 
+                count: 0, 
+                price: item.price, 
+                estWeight: item.estimated_weight,
+                totalPrice: 0 
+            };
+        }
+        acc[item.name].count += 1;
+        acc[item.name].totalPrice += (item.price * (item.estimated_weight || 1));
+        return acc;
+    }, {});
+}
+
 // --- API RUTER ---
 
 app.get('/api/products', async (req, res) => {
@@ -56,7 +73,8 @@ app.post('/api/order', async (req, res) => {
         const { data: allOrders } = await supabase.from('orders').select('total_price');
         const totalIndtjeningAltid = allOrders.reduce((sum, o) => sum + (Number(o.total_price) || 0), 0);
 
-        // 4. Generer PDF
+        // 4. Generer PDF med grupperede linjer
+        const groupedForPdf = groupCartForEmail(cart);
         const pdfBuffer = await new Promise((resolve) => {
             const doc = new PDFDocument();
             let buffers = [];
@@ -64,12 +82,12 @@ app.post('/api/order', async (req, res) => {
             doc.on('end', () => resolve(Buffer.concat(buffers)));
             
             doc.fontSize(22).text('Reservation - RønGården', { align: 'center' });
-            doc.moveDown().fontSize(12).text(`Kunde: ${name}`).text(`Tlf: ${phone}`);
+            doc.moveDown().fontSize(12).text(`Kunde: ${name}`).text(`Tlf: ${phone}`).text(`Dato: ${new Date().toLocaleDateString('da-DK')}`);
             doc.moveDown().text('Reserverede varer:', { underline: true });
             
-            cart.forEach(item => {
-                const itemTotal = (item.price * (item.estimated_weight || 1)).toFixed(2);
-                doc.text(`${item.name} (~${item.estimated_weight} kg): ${itemTotal} kr.`);
+            Object.keys(groupedForPdf).forEach(itemName => {
+                const item = groupedForPdf[itemName];
+                doc.text(`${item.count} x ${itemName} (á ca. ${item.estWeight} kg): ${item.totalPrice.toFixed(0)} kr.`);
             });
             
             doc.moveDown().fontSize(14).text(`Total estimeret pris: ${total} kr.`, { bold: true });
@@ -77,23 +95,24 @@ app.post('/api/order', async (req, res) => {
             doc.end();
         });
 
-        // 5. Send mails
+        // 5. Send mails (PDF vedhæftes begge)
         await transporter.sendMail({
             from: `"RønGården" <${process.env.EMAIL_USER}>`,
             to: email,
             subject: `Reservation bekræftet - ${name}`,
-            html: `<h3>Tak for din reservation</h3><p>Vi har reserveret dit kød. Se vedhæftede PDF for detaljer.</p>`,
-            attachments: [{ filename: 'reservation.pdf', content: pdfBuffer }]
+            html: `<h3>Tak for din reservation, ${name}</h3><p>Vi har reserveret dit kød. Se vedhæftede PDF for detaljer om din reservation.</p>`,
+            attachments: [{ filename: 'Din_Reservation_RoenGaarden.pdf', content: pdfBuffer }]
         });
 
         await transporter.sendMail({
             from: `"RønGården System" <${process.env.EMAIL_USER}>`,
             to: process.env.EMAIL_USER,
             subject: `💰 Ny indtjening! Status: ${totalIndtjeningAltid} kr.`,
-            html: `<h2>Ny ordre modtaget!</h2><p><strong>Kunde:</strong> ${name}</p><p><strong>Denne ordre:</strong> ${total} kr.</p><hr><p><strong>Total indtjening nogensinde:</strong> ${totalIndtjeningAltid} kr.</p>`
+            html: `<h2>Ny ordre modtaget!</h2><p><strong>Kunde:</strong> ${name}</p><p><strong>Denne ordre:</strong> ${total} kr.</p><hr><p><strong>Total indtjening nogensinde:</strong> ${totalIndtjeningAltid} kr.</p>`,
+            attachments: [{ filename: 'reservation.pdf', content: pdfBuffer }]
         });
 
-        res.json({ success: true, message: "Reservation modtaget! Tjek din e-mail." });
+        res.json({ success: true, message: "Reservation modtaget! Tjek din e-mail for bekræftelse og PDF." });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -287,11 +306,22 @@ app.get('/', (req, res) => {
                 document.getElementById('cart-count').innerText = cart.length;
                 document.getElementById('cart-float').style.display = cart.length > 0 ? 'flex' : 'none';
                 
-                document.getElementById('cart-items-list').innerHTML = cart.map((item) => \`
-                    <div class="cart-item-row">
-                        <span>\${item.name} (~\${item.estimated_weight}kg)</span>
-                        <strong>\${(item.price * item.estimated_weight).toFixed(0)} kr.</strong>
-                    </div>\`).join('');
+                // Gruppering til frontend visning
+                const groups = cart.reduce((acc, item) => {
+                    acc[item.name] = (acc[item.name] || 0) + 1;
+                    return acc;
+                }, {});
+
+                document.getElementById('cart-items-list').innerHTML = Object.keys(groups).map(name => {
+                    const count = groups[name];
+                    const itemData = cart.find(i => i.name === name);
+                    const groupTotal = (itemData.price * itemData.estimated_weight * count).toFixed(0);
+                    return \`
+                        <div class="cart-item-row">
+                            <span>\${count} x \${name} (~\${itemData.estimated_weight}kg pr. stk)</span>
+                            <strong>\${groupTotal} kr.</strong>
+                        </div>\`;
+                }).join('');
                 render();
             }
 
