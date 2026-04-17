@@ -166,7 +166,7 @@ app.get('/', (req, res) => {
                 <div class="practical-info">
                     <div class="info-item">
                         <h4>💳 Betaling</h4>
-                        <p>Betaling sker via MobilePay eller kontant ved afhentning på gården. Den endelige pris gøres først op ved afhentning, afhængigt af kg/udskæring.</p>
+                        <p>Betaling sker via MobilePay eller kontant ved afhentning på gården. Den endelige pris udregnes ved afhentning (Afhængigt af kg/udskæring).</p>
                     </div>
                     <div class="info-item">
                         <h4>🚜 Afhentning</h4>
