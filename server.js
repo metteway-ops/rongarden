@@ -42,7 +42,7 @@ app.post('/api/order', async (req, res) => {
             .insert([{ customer_name: name, phone, items: cart, total_price: total }]);
         if (orderError) throw orderError;
 
-        // 2. Opdater lagerbeholdning
+        // 2. Opdater lagerbeholdning (Vægtbaseret logik for højreb)
         for (const item of cart) {
             if (item.parent_stock_group === 'hoejreb') {
                 const weight = item.stock_weight || 1; 
@@ -134,6 +134,7 @@ app.get('/', (req, res) => {
             
             .prep-badge { background: #f0f4f0; color: var(--green); padding: 6px 12px; border-radius: 8px; font-size: 0.75rem; margin-bottom: 12px; font-weight: 600; width: fit-content; }
             .product-price { font-weight: 700; color: var(--clay); font-size: 1.2rem; margin-bottom: 15px; margin-top: auto; }
+            .price-label { font-size: 0.8rem; display: block; color: #666; font-weight: 400; margin-bottom: 2px; }
             
             .btn { background: var(--green); color: white; border: none; padding: 14px; border-radius: 12px; cursor: pointer; font-weight: 600; width: 100%; }
             .btn:disabled { background: #ccc; cursor: not-allowed; }
@@ -143,7 +144,6 @@ app.get('/', (req, res) => {
             .about-content h2 { font-family: 'Playfair Display', serif; color: var(--green); font-size: 2.2rem; margin-bottom: 1.5rem; text-align: center; }
             .about-content p { margin-bottom: 1.5rem; font-size: 1.1rem; color: #555; }
 
-            /* Modal & Float */
             #cart-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 3000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
             .modal-content { background: white; padding: 2.5rem; border-radius: 32px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; }
             .cart-item-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #eee; }
@@ -184,9 +184,9 @@ app.get('/', (req, res) => {
                         <div class="product-info">
                             <div class="prep-badge" style="background: var(--clay); color: white;">VEJBOD</div>
                             <h3>Friske Gårdæg</h3>
-                            <p>Vores høns flytter ind snart! Glæd dig til store, blommegule æg fra fritgående høns.</p>
-                            <div class="product-price">Dec. 2026</div>
-                            <button class="btn" disabled style="background: #eee; color:#999;">Afventer</button>
+                            <p>Vores høns flytter ind snart! Glæd dig til store, blommegule æg fra fritgående høns direkte fra marken.</p>
+                            <div class="product-price">Ultimo 2026</div>
+                            <button class="btn" disabled style="background: #eee; color:#999;">Afventer indflytning</button>
                         </div>
                     </div>
                 </div>
@@ -251,8 +251,13 @@ app.get('/', (req, res) => {
                             <h3>\${p.name}</h3>
                             <p style="font-size:0.85rem; color:#666; margin-bottom:10px;">\${p.description || ''}</p>
                             \${p.preparation_info ? \`<div class="prep-badge">⏱ \${p.preparation_info}</div>\` : ''}
-                            <p style="font-size:0.8rem; color:var(--green); font-weight:600;">Ca. \${p.estimated_weight} kg pr. stk.</p>
-                            <div class="product-price">~\${estPrice} kr. <small style="font-size:0.7rem; color:#999; font-weight:400;">(\${p.price} kr/kg)</small></div>
+                            <p style="font-size:0.8rem; color:var(--green); font-weight:600; margin-bottom:15px;">Ca. \${p.estimated_weight} kg pr. stk.</p>
+                            
+                            <div class="product-price">
+                                <span class="price-label">Estimeret pris pr. udskæring:</span>
+                                ~\${estPrice} kr. <small style="font-size:0.7rem; color:#999; font-weight:400;">(\${p.price} kr/kg)</small>
+                            </div>
+                            
                             <button class="btn" \${displayStock <= 0 ? 'disabled' : ''} onclick="addToCart(\${p.id})">
                                 \${displayStock <= 0 ? 'Udsolgt' : 'Læg i kurv'}
                             </button>
@@ -287,7 +292,7 @@ app.get('/', (req, res) => {
                         <span>\${item.name} (~\${item.estimated_weight}kg)</span>
                         <strong>\${(item.price * item.estimated_weight).toFixed(0)} kr.</strong>
                     </div>\`).join('');
-                render(); // Opdater knapper og lager-tal på siden
+                render();
             }
 
             function toggleCart() {
