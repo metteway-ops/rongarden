@@ -199,7 +199,7 @@ app.get('/', (req, res) => {
                 <h2 style="font-family:'Playfair Display', serif; text-align:center; margin-bottom:2rem; color:var(--green);">Fremtiden på RønGården</h2>
                 <div class="product-grid">
                     <div class="product-card" style="border: 1px dashed var(--clay);">
-                        <img src="/æg.jpg" class="product-img" style="filter: grayscale(20%);">
+                        <img src="/aeg.jpg" class="product-img" style="filter: grayscale(20%);">
                         <div class="product-info">
                             <div class="prep-badge" style="background: var(--clay); color: white;">VEJBOD</div>
                             <h3>Friske Gårdæg</h3>
