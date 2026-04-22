@@ -53,13 +53,13 @@ app.post('/api/order', async (req, res) => {
     const { name, phone, email, cart, total } = req.body;
     
     try {
-        // 1. Gem ordren i databasen
+        // 1. Gem ordren
         const { data: order, error: orderError } = await supabase
             .from('orders')
             .insert([{ customer_name: name, phone, items: cart, total_price: total }]);
         if (orderError) throw orderError;
 
-        // 2. Opdater lagerbeholdning
+        // 2. Opdater lagerbeholdning (Vægtbaseret logik for højreb)
         for (const item of cart) {
             if (item.parent_stock_group === 'hoejreb') {
                 const weight = item.stock_weight || 1; 
@@ -69,30 +69,11 @@ app.post('/api/order', async (req, res) => {
             }
         }
 
-        // 3. BEREGNINGER TIL EJER-MAIL
-        // Hent alle ordrer og produkter for at beregne statistik
-        const { data: allOrders } = await supabase.from('orders').select('total_price, items');
-        const { data: allProducts } = await supabase.from('products').select('stock, parent_stock_group');
-
-        // A: Total indtjening (kroner)
+        // 3. Beregn total indtjening til ejer-mail
+        const { data: allOrders } = await supabase.from('orders').select('total_price');
         const totalIndtjeningAltid = allOrders.reduce((sum, o) => sum + (Number(o.total_price) || 0), 0);
 
-        // B: Total kg solgt (vi summerer estimated_weight fra alle solgte items i alle ordrer)
-        let totalKgSolgt = 0;
-        allOrders.forEach(ord => {
-            if (ord.items) {
-                ord.items.forEach(item => {
-                    totalKgSolgt += (Number(item.estimated_weight) || 0);
-                });
-            }
-        });
-
-        // C: Kg tilbage på lager (vi summerer 'stock' for hoejreb-gruppen)
-        const kgTilbage = allProducts
-            .filter(p => p.parent_stock_group === 'hoejreb')
-            .reduce((sum, p) => sum + (Number(p.stock) || 0), 0);
-
-        // 4. Generer PDF (samme logik som før)
+        // 4. Generer PDF med grupperede linjer
         const groupedForPdf = groupCartForEmail(cart);
         const pdfBuffer = await new Promise((resolve) => {
             const doc = new PDFDocument();
@@ -110,47 +91,32 @@ app.post('/api/order', async (req, res) => {
             });
             
             doc.moveDown().fontSize(14).text(`Total estimeret pris: ${total} kr.`, { bold: true });
+            doc.moveDown(2).fontSize(10).fillColor('#666').text('Bemærk: Betaling sker ved afhentning på gården via MobilePay eller kontant.', { align: 'center' });
             doc.end();
         });
 
-        // 5. Send mails
-        // Mail til Kunden
+        // 5. Send mails (PDF vedhæftes begge)
         await transporter.sendMail({
             from: `"RønGården" <${process.env.EMAIL_USER}>`,
             to: email,
             subject: `Reservation bekræftet - ${name}`,
-            html: `<h3>Tak for din reservation, ${name}</h3><p>Se vedhæftede PDF for detaljer.</p>`,
-            attachments: [{ filename: 'Reservation_RoenGaarden.pdf', content: pdfBuffer }]
+            html: `<h3>Tak for din reservation, ${name}</h3><p>Vi har reserveret dit kød. Se vedhæftede PDF for detaljer om din reservation.</p>`,
+            attachments: [{ filename: 'Din_Reservation_RoenGaarden.pdf', content: pdfBuffer }]
         });
 
-        // Mail til Ejer (USER)
         await transporter.sendMail({
             from: `"RønGården System" <${process.env.EMAIL_USER}>`,
-            to: process.env.EMAIL_USER, // Modtager er stadig USER
-            subject: `💰 Ny ordre! Salg: ${totalKgSolgt.toFixed(1)} kg / Lager: ${kgTilbage.toFixed(1)} kg`,
-            html: `
-                <h2>Ny reservation modtaget</h2>
-                <p><strong>Kunde:</strong> ${name}</p>
-                <p><strong>Denne ordre:</strong> ${total} kr.</p>
-                <hr>
-                <div style="background: #f9f9f9; padding: 15px; border-radius: 10px;">
-                    <h3 style="margin-top:0;">Lagerstatus (Højreb)</h3>
-                    <p><strong>Total solgt indtil nu:</strong> ${totalKgSolgt.toFixed(1)} kg</p>
-                    <p><strong>Kød tilbage på lager:</strong> ${kgTilbage.toFixed(1)} kg</p>
-                    <p><strong>Total indtjening:</strong> ${totalIndtjeningAltid.toFixed(0)} kr.</p>
-                </div>
-            `,
+            to: process.env.EMAIL_USER,
+            subject: `💰 Ny indtjening! Status: ${totalIndtjeningAltid} kr.`,
+            html: `<h2>Ny ordre modtaget!</h2><p><strong>Kunde:</strong> ${name}</p><p><strong>Denne ordre:</strong> ${total} kr.</p><hr><p><strong>Total indtjening nogensinde:</strong> ${totalIndtjeningAltid} kr.</p>`,
             attachments: [{ filename: 'reservation.pdf', content: pdfBuffer }]
         });
 
-        res.json({ success: true, message: "Reservation modtaget!" });
+        res.json({ success: true, message: "Reservation modtaget! Tjek din e-mail for bekræftelse og PDF." });
     } catch (err) {
-        console.error(err);
         res.status(500).json({ error: err.message });
     }
 });
-
-
 
 // --- FRONTEND ---
 app.get('/', (req, res) => {
