@@ -131,6 +131,13 @@ app.get('/', (req, res) => {
         <style>
             :root { --green: #2d5a27; --clay: #a67c52; --cream: #f9f7f2; --white: #ffffff; --text: #34495e; }
             body { font-family: 'Inter', sans-serif; background: var(--cream); margin: 0; color: var(--text); line-height: 1.6; }
+
+.footer-logo {
+    display: block;
+    margin: 4rem auto 2rem; /* Skaber luft over logoet */
+    max-width: 150px;       /* Juster størrelsen her */
+    opacity: 0.8;           /* Gør det lidt diskret */
+}
             
             header { background: var(--white); padding: 1rem 5%; border-bottom: 1px solid rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 1000; display: flex; justify-content: space-between; align-items: center; }
             .logo-text { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 700; color: var(--green); text-decoration: none; cursor:pointer; }
@@ -193,6 +200,7 @@ app.get('/', (req, res) => {
                     </div>
                 </div>
                 <div id="product-list-inner" class="product-grid">Henter varer...</div>
+<img src="/Røn_LOGO.jpg" alt="RønGården Logo" class="footer-logo">
             </section>
 
            <section id="coming" class="section">
@@ -231,6 +239,7 @@ app.get('/', (req, res) => {
                         </div>
                     </div>
                 </div>
+<img src="/Røn_LOGO.jpg" alt="RønGården Logo" class="footer-logo">
             </section>
 
             <section id="about" class="section">
@@ -242,6 +251,7 @@ app.get('/', (req, res) => {
                     <p>Dette lukkede kredsløb er din garanti for høj dyrevelfærd, minimalt spild og en bæredygtig vej fra jord til bord.</p>
                     <img src="/Økosystem.jpg" alt="Visuel præsentation" style="width:100%; border-radius:24px; margin-top:2rem; border: 1px solid rgba(0,0,0,0.03);" />
                 </div>
+<img src="/Røn_LOGO.jpg" alt="RønGården Logo" class="footer-logo">
             </section>
         </div>
 
