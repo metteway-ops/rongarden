@@ -132,7 +132,7 @@ app.get('/', (req, res) => {
             :root { --green: #2d5a27; --clay: #a67c52; --cream: #f9f7f2; --white: #ffffff; --text: #34495e; }
             body { font-family: 'Inter', sans-serif; background: var(--cream); margin: 0; color: var(--text); line-height: 1.6; }
             
-            header { background: var(--white); padding: 1rem 5%; border-bottom: 1px solid rgba(0,0,0,0.05); position: sticky; top: 0; font-size: 0.9rem; z-index: 1000; display: flex; justify-content: space-between; align-items: center; }
+            header { background: var(--white); padding: 1rem 5%; border-bottom: 1px solid rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 1000; display: flex; justify-content: space-between; align-items: center; }
             .logo-text { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 700; color: var(--green); text-decoration: none; cursor:pointer; }
             nav a { margin-left: 20px; text-decoration: none; color: var(--text); font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: color 0.2s; }
             nav a:hover, nav a.active { color: var(--green); }
@@ -199,57 +199,13 @@ app.get('/', (req, res) => {
                 <h2 style="font-family:'Playfair Display', serif; text-align:center; margin-bottom:2rem; color:var(--green);">Fremtiden på RønGården</h2>
                 <div class="product-grid">
                     <div class="product-card" style="border: 1px dashed var(--clay);">
-                        <img src="/aeg.jpg" class="product-img" style="filter: grayscale(20%);">
+                        <img src="/æg.jpg" class="product-img" style="filter: grayscale(20%);">
                         <div class="product-info">
                             <div class="prep-badge" style="background: var(--clay); color: white;">VEJBOD</div>
                             <h3>Friske Gårdæg</h3>
                             <p>Vores høns flytter ind snart! Glæd dig til store, blommegule æg fra fritgående høns direkte fra marken.</p>
                             <div class="product-price">Ultimo 2026</div>
                             <button class="btn" disabled style="background: #eee; color:#999;">Afventer indflytning</button>
-                        </div>
-                    </div>
-
-                    <div class="product-card" style="border: 1px dashed var(--green);">
-                        <img src="/twist.jpg" class="product-img">
-                        <div class="product-info">
-                            <div class="prep-badge">FORSOMMER</div>
-                            <h3>Twist Jordbær</h3>
-                            <p>Sæsonens første kys. Frisk, saftig og med en perfekt balance mellem sødme og syre.</p>
-                            <div class="product-price">Juni 2027</div>
-                            <button class="btn" disabled style="background: #eee; color:#999;">Afventer sæson</button>
-                        </div>
-                    </div>
-
-                    <div class="product-card" style="border: 1px dashed var(--green);">
-                        <img src="/verdi.jpg" class="product-img">
-                        <div class="product-info">
-                            <div class="prep-badge">GOURMET</div>
-                            <h3>Verdi Jordbær</h3>
-                            <p>Meget aromatisk og ekstremt sødt. Jordbærret for kenderen, der elsker den klassiske smag.</p>
-                            <div class="product-price">Juni/Juli 2027</div>
-                            <button class="btn" disabled style="background: #eee; color:#999;">Afventer sæson</button>
-                        </div>
-                    </div>
-
-                    <div class="product-card" style="border: 1px dashed var(--green);">
-                        <img src="/falco.jpg" class="product-img">
-                        <div class="product-info">
-                            <div class="prep-badge">HØJSOMMER</div>
-                            <h3>Falco Jordbær</h3>
-                            <p>Store, faste og utroligt saftige bær. Den ultimative sommeroplevelse med fløde.</p>
-                            <div class="product-price">Juli 2027</div>
-                            <button class="btn" disabled style="background: #eee; color:#999;">Afventer sæson</button>
-                        </div>
-                    </div>
-
-                    <div class="product-card" style="border: 1px dashed var(--green);">
-                        <img src="/malwina.jpg" class="product-img">
-                        <div class="product-info">
-                            <div class="prep-badge">SENSOMMER</div>
-                            <h3>Malwina Jordbær</h3>
-                            <p>Sommerens dybe finale. Mørkerøde bær med en intens og næsten vild jordbærsmag.</p>
-                            <div class="product-price">August 2027</div>
-                            <button class="btn" disabled style="background: #eee; color:#999;">Afventer sæson</button>
                         </div>
                     </div>
                 </div>
@@ -350,6 +306,7 @@ app.get('/', (req, res) => {
                 document.getElementById('cart-count').innerText = cart.length;
                 document.getElementById('cart-float').style.display = cart.length > 0 ? 'flex' : 'none';
                 
+                // Gruppering til frontend visning
                 const groups = cart.reduce((acc, item) => {
                     acc[item.name] = (acc[item.name] || 0) + 1;
                     return acc;
