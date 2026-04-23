@@ -219,8 +219,13 @@ app.get('/', (req, res) => {
                             <button class="btn" disabled style="background: #eee; color:#999;">Afventer høst</button>
                         </div>
                     </div>
+
+                    <div class="product-card" style="border: 1px dashed var(--clay);">
+                        <img src="/aeg.jpg" class="product-img" style="filter: grayscale(20%);">
+                        <div class="product-info">
+                            <div class="prep-badge" style="background: var(--clay); color: white;">VEJBOD</div>
                             <h3>Friske Gårdæg</h3>
-                            <p>Vores høns flytter ind snart! Glæd dig til store, blommegule æg fra fritgående høns direkte fra marken.</p>
+                            <p>Vores høns flytter ind snart! Glæd dig til store, blommegule æg fra fritgående høns.</p>
                             <div class="product-price">Ultimo 2026</div>
                             <button class="btn" disabled style="background: #eee; color:#999;">Afventer indflytning</button>
                         </div>
