@@ -185,7 +185,7 @@ app.get('/', (req, res) => {
                 <div class="practical-info">
                     <div class="info-item">
                         <h4>💳 Betaling</h4>
-                        <p>Betaling sker via MobilePay eller kontant ved afhentning på gården. Den endelige pris udregnes ved afhentning (Afhængigt af kg/udskæring).</p>
+                        <p>Betaling sker via MobilePay eller kontant ved afhentning på gården. OBS: Priserne er vejledende ud fra forventede mængder.</p>
                     </div>
                     <div class="info-item">
                         <h4>🚜 Afhentning</h4>
@@ -195,13 +195,30 @@ app.get('/', (req, res) => {
                 <div id="product-list-inner" class="product-grid">Henter varer...</div>
             </section>
 
-            <section id="coming" class="section">
+           <section id="coming" class="section">
                 <h2 style="font-family:'Playfair Display', serif; text-align:center; margin-bottom:2rem; color:var(--green);">Fremtiden på RønGården</h2>
                 <div class="product-grid">
                     <div class="product-card" style="border: 1px dashed var(--clay);">
-                        <img src="/æg.jpg" class="product-img" style="filter: grayscale(20%);">
+                        <img src="/jordbaer.jpg" class="product-img" style="filter: grayscale(20%);">
                         <div class="product-info">
-                            <div class="prep-badge" style="background: var(--clay); color: white;">VEJBOD</div>
+                            <div class="prep-badge" style="background: #ff4d4d; color: white;">SOMMER 2027</div>
+                            <h3>Søde Gårdjordbær</h3>
+                            <p>Glæd dig til smagen af dansk sommer. Vi planter flere sorter for en lang og smagfuld sæson.</p>
+                            <div class="product-price">Kommer til juni</div>
+                            <button class="btn" disabled style="background: #eee; color:#999;">Afventer sæson</button>
+                        </div>
+                    </div>
+
+                    <div class="product-card" style="border: 1px dashed var(--clay);">
+                        <img src="/kartofler.jpg" class="product-img" style="filter: grayscale(20%);">
+                        <div class="product-info">
+                            <div class="prep-badge" style="background: var(--clay); color: white;">NYHED</div>
+                            <h3>Nye Kartofler</h3>
+                            <p>Direkte fra mulden på RønGården. De klassiske faste sorter, der smager allerbedst med en klat smør.</p>
+                            <div class="product-price">Forår 2027</div>
+                            <button class="btn" disabled style="background: #eee; color:#999;">Afventer høst</button>
+                        </div>
+                    </div>
                             <h3>Friske Gårdæg</h3>
                             <p>Vores høns flytter ind snart! Glæd dig til store, blommegule æg fra fritgående høns direkte fra marken.</p>
                             <div class="product-price">Ultimo 2026</div>
