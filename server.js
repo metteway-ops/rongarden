@@ -302,20 +302,27 @@ app.get('/', (req, res) => {
             </section>
         </div>
 
-        <div id="cart-modal" onclick="if(event.target==this) toggleCart()">
-            <div class="modal-content">
-                <h2 style="font-family:'Playfair Display'">Din Reservation</h2>
-                <div id="cart-items-list"></div>
-                <div style="margin-top:20px; font-size:1.2rem; font-weight:700; display:flex; justify-content:space-between;">
-                    <span>Total (Estimeret):</span>
-                    <span id="modal-total">0</span> kr.
-                </div>
-                <div style="display:flex; gap:10px; margin-top:25px;">
-                    <button class="btn-secondary" onclick="clearCart()">Tøm kurv</button>
-                    <button class="btn" onclick="checkout()">Bekræft reservation</button>
-                </div>
-            </div>
+<div id="cart-modal" onclick="if(event.target==this) toggleCart()">
+    <div class="modal-content">
+        <h2 style="font-family:'Playfair Display'">Din Reservation</h2>
+        <div id="cart-items-list"></div>
+        <div style="margin-top:20px; font-size:1.2rem; font-weight:700; display:flex; justify-content:space-between;">
+            <span>Total (Estimeret):</span>
+            <span id="modal-total">0</span> kr.
         </div>
+
+        <div id="checkout-form" style="display:none; margin-top:20px; border-top:1px solid #eee; padding-top:20px;">
+            <input type="text" id="cust-name" placeholder="Dit navn" style="width:100%; padding:12px; margin-bottom:10px; border-radius:12px; border:1px solid #ddd; box-sizing: border-box;">
+            <input type="email" id="cust-email" placeholder="Din e-mail" style="width:100%; padding:12px; margin-bottom:10px; border-radius:12px; border:1px solid #ddd; box-sizing: border-box;">
+            <input type="tel" id="cust-phone" placeholder="Dit telefonnummer" style="width:100%; padding:12px; margin-bottom:15px; border-radius:12px; border:1px solid #ddd; box-sizing: border-box;">
+            <button class="btn" onclick="submitOrder()">Send reservation</button>
+        </div>
+        <div id="modal-buttons" style="display:flex; gap:10px; margin-top:25px;">
+            <button class="btn-secondary" onclick="clearCart()">Tøm kurv</button>
+            <button class="btn" onclick="showCheckoutForm()">Gå til bestilling</button>
+        </div>
+    </div>
+</div>
 
         <div id="cart-float">
             <span>Total: <strong id="total-price">0</strong> kr.</span>
@@ -411,20 +418,45 @@ app.get('/', (req, res) => {
 
             function clearCart() { location.reload(); }
 
-            async function checkout() {
-                const name = prompt("Dit navn:"), email = prompt("Din e-mail:"), phone = prompt("Dit telefonnummer:");
-                if(!name || !email || !phone) return;
-                
-                const total = document.getElementById('total-price').innerText;
-                const res = await fetch('/api/order', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({name, email, phone, cart, total})
-                });
-                const data = await res.json(); 
-                alert(data.message); 
-                location.reload();
-            }
+// Viser formularen og skjuler "Gå til bestilling"-knappen
+function showCheckoutForm() {
+    document.getElementById('checkout-form').style.display = 'block';
+    document.getElementById('modal-buttons').style.display = 'none';
+}
+
+// Den funktion der faktisk sender ordren til din server
+async function submitOrder() {
+    const name = document.getElementById('cust-name').value;
+    const email = document.getElementById('cust-email').value;
+    const phone = document.getElementById('cust-phone').value;
+
+    if(!name || !email || !phone) {
+        alert("Udfyld venligst alle felter, så vi kan bekræfte din reservation.");
+        return;
+    }
+    
+    // Deaktiver knappen så kunden ikke trykker 10 gange
+    event.target.disabled = true;
+    event.target.innerText = "Sender...";
+
+    const total = document.getElementById('total-price').innerText;
+    
+    try {
+        const res = await fetch('/api/order', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name, email, phone, cart, total})
+        });
+        const data = await res.json(); 
+        alert(data.message); 
+        location.reload();
+    } catch (err) {
+        alert("Der skete en fejl. Prøv venligst igen.");
+        event.target.disabled = false;
+        event.target.innerText = "Send reservation";
+    }
+}
+
         </script>
     </body>
     </html>`);
