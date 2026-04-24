@@ -53,13 +53,53 @@ app.post('/api/order', async (req, res) => {
     const { name, phone, email, cart, total } = req.body;
     
     try {
-        // 1. Gem ordren
-        const { data: order, error: orderError } = await supabase
+        // 1. Tjek om der findes en eksisterende ordre med denne mail
+        const { data: existingOrder, error: findError } = await supabase
             .from('orders')
-            .insert([{ customer_name: name, phone, items: cart, total_price: total }]);
-        if (orderError) throw orderError;
+            .select('*')
+            .eq('email', email)
+            .maybeSingle(); // Returnerer null hvis ingen findes, i stedet for fejl
 
-        // 2. Opdater lagerbeholdning (Vægtbaseret logik for højreb)
+        if (findError) throw findError;
+
+        let finalItems;
+        let finalTotal;
+
+        if (existingOrder) {
+            // --- OPDATER EKSISTERENDE ORDRE ---
+            finalItems = [...existingOrder.items, ...cart];
+            finalTotal = Number(existingOrder.total_price) + Number(total);
+
+            const { error: updateError } = await supabase
+                .from('orders')
+                .update({ 
+                    items: finalItems, 
+                    total_price: finalTotal,
+                    customer_name: name, // Opdater evt. navn/tlf hvis de har ændret sig
+                    phone: phone 
+                })
+                .eq('id', existingOrder.id);
+            
+            if (updateError) throw updateError;
+        } else {
+            // --- OPRET NY ORDRE ---
+            finalItems = cart;
+            finalTotal = total;
+
+            const { error: insertError } = await supabase
+                .from('orders')
+                .insert([{ 
+                    customer_name: name, 
+                    phone, 
+                    email, // HUSK: Tilføj email kolonnen i din tabel!
+                    items: cart, 
+                    total_price: total 
+                }]);
+            
+            if (insertError) throw insertError;
+        }
+
+        // 2. Opdater lagerbeholdning (Logikken er den samme som før)
         for (const item of cart) {
             if (item.parent_stock_group === 'hoejreb') {
                 const weight = item.stock_weight || 1; 
@@ -73,47 +113,54 @@ app.post('/api/order', async (req, res) => {
         const { data: allOrders } = await supabase.from('orders').select('total_price');
         const totalIndtjeningAltid = allOrders.reduce((sum, o) => sum + (Number(o.total_price) || 0), 0);
 
-        // 4. Generer PDF med grupperede linjer
-        const groupedForPdf = groupCartForEmail(cart);
+        // 4. Generer PDF (Vi bruger finalItems, så kunden ser den SAMLEDE ordre)
+        const groupedForPdf = groupCartForEmail(finalItems);
         const pdfBuffer = await new Promise((resolve) => {
             const doc = new PDFDocument();
             let buffers = [];
             doc.on('data', buffers.push.bind(buffers));
             doc.on('end', () => resolve(Buffer.concat(buffers)));
             
-            doc.fontSize(22).text('Reservation - RønGården', { align: 'center' });
+            doc.fontSize(22).text('Opdateret Reservation - RønGården', { align: 'center' });
             doc.moveDown().fontSize(12).text(`Kunde: ${name}`).text(`Tlf: ${phone}`).text(`Dato: ${new Date().toLocaleDateString('da-DK')}`);
-            doc.moveDown().text('Reserverede varer:', { underline: true });
+            doc.moveDown().text('Din samlede reservation:', { underline: true });
             
             Object.keys(groupedForPdf).forEach(itemName => {
                 const item = groupedForPdf[itemName];
                 doc.text(`${item.count} x ${itemName} (á ca. ${item.estWeight} kg): ${item.totalPrice.toFixed(0)} kr.`);
             });
             
-            doc.moveDown().fontSize(14).text(`Total estimeret pris: ${total} kr.`, { bold: true });
-            doc.moveDown(2).fontSize(10).fillColor('#666').text('Bemærk: Betaling sker ved afhentning på gården via MobilePay eller kontant.', { align: 'center' });
+            doc.moveDown().fontSize(14).text(`Samlet estimeret pris: ${finalTotal} kr.`, { bold: true });
+            doc.moveDown(2).fontSize(10).fillColor('#666').text('Denne PDF indeholder din fulde ordre inklusiv seneste tilføjelser.', { align: 'center' });
             doc.end();
         });
 
-        // 5. Send mails (PDF vedhæftes begge)
+        // 5. Send mails
+        const mailSubject = existingOrder ? `Reservation opdateret - ${name}` : `Reservation bekræftet - ${name}`;
+        const mailText = existingOrder 
+            ? `<h3>Vi har tilføjet de nye varer til din eksisterende reservation, ${name}!</h3><p>Se din opdaterede oversigt i den vedhæftede PDF.</p>`
+            : `<h3>Tak for din reservation, ${name}</h3><p>Se vedhæftede PDF for detaljer.</p>`;
+
         await transporter.sendMail({
             from: `"RønGården" <${process.env.EMAIL_USER}>`,
             to: email,
-            subject: `Reservation bekræftet - ${name}`,
-            html: `<h3>Tak for din reservation, ${name}</h3><p>Vi har reserveret dit kød. Se vedhæftede PDF for detaljer om din reservation.</p>`,
+            subject: mailSubject,
+            html: mailText,
             attachments: [{ filename: 'Din_Reservation_RoenGaarden.pdf', content: pdfBuffer }]
         });
 
+        // Ejer-mail
         await transporter.sendMail({
             from: `"RønGården System" <${process.env.EMAIL_USER}>`,
             to: process.env.EMAIL_USER,
-            subject: `💰 Ny indtjening! Status: ${totalIndtjeningAltid} kr.`,
-            html: `<h2>Ny ordre modtaget!</h2><p><strong>Kunde:</strong> ${name}</p><p><strong>Denne ordre:</strong> ${total} kr.</p><hr><p><strong>Total indtjening nogensinde:</strong> ${totalIndtjeningAltid} kr.</p>`,
+            subject: `💰 Ny/Opdateret ordre! Status: ${totalIndtjeningAltid} kr.`,
+            html: `<h2>Ordre fra ${name}</h2><p><strong>Status:</strong> ${existingOrder ? 'Tilføjet til eksisterende' : 'Helt ny kunde'}</p><p><strong>Total for denne kunde nu:</strong> ${finalTotal} kr.</p>`,
             attachments: [{ filename: 'reservation.pdf', content: pdfBuffer }]
         });
 
-        res.json({ success: true, message: "Reservation modtaget! Tjek din e-mail for bekræftelse og PDF." });
+        res.json({ success: true, message: existingOrder ? "Varer tilføjet til din eksisterende ordre!" : "Reservation modtaget!" });
     } catch (err) {
+        console.error(err);
         res.status(500).json({ error: err.message });
     }
 });
