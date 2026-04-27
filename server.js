@@ -165,7 +165,83 @@ app.post('/api/order', async (req, res) => {
     }
 });
 
+// ... her slutter din app.post('/api/order')
+
+// >>> INDSÆT DETTE HER (API TIL AT SENDE MAILS) <<<
+app.post('/api/admin/notify-ready', async (req, res) => {
+    const { password } = req.body;
+    if (password !== process.env.ADMIN_PASSWORD) {
+        return res.status(401).json({ error: "Forkert kodeord!" });
+    }
+
+    try {
+        const { data: customers, error } = await supabase.from('orders').select('email, customer_name');
+        if (error) throw error;
+
+        const uniqueCustomers = Array.from(new Map(customers.map(c => [c.email, c])).values());
+
+        const emailPromises = uniqueCustomers.map(customer => {
+            return transporter.sendMail({
+                from: `"RønGården" <${process.env.EMAIL_USER}>`,
+                to: customer.email,
+                subject: "Opdatering: Kødet er snart klar på RønGården 🌿",
+                html: `<h3>Hej ${customer.customer_name}</h3>
+                       <p> Kødet er klar til afhentning <b> torsdag d. 14. maj </b>.</p>
+                       <p>Venlig hilsen<br>RønGården</p>`
+            });
+        });
+
+        await Promise.all(emailPromises);
+        res.json({ success: true, message: `Sendt til ${uniqueCustomers.length} kunder!` });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
 // --- FRONTEND ---
+
+app.get('/admin-gaarden', (req, res) => {
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="da">
+    <head>
+        <meta charset="UTF-8">
+        <title>Admin | RønGården</title>
+        <style>
+            body { font-family: sans-serif; background: #f9f7f2; display: flex; align-items: center; justify-content: center; height: 100vh; }
+            .box { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; }
+            input { width: 100%; padding: 10px; margin: 15px 0; border-radius: 8px; border: 1px solid #ccc; }
+            button { background: #2d5a27; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; }
+        </style>
+    </head>
+    <body>
+        <div class="box">
+            <h2>Gård-Kontrol 🚜</h2>
+            <p>Send "snart klar" mail til alle kunder</p>
+            <input type="password" id="pw" placeholder="Admin kodeord">
+            <button onclick="go()">Send mails nu</button>
+            <p id="msg"></p>
+        </div>
+        <script>
+            async function go() {
+                const password = document.getElementById('pw').value;
+                if(!confirm("Vil du sende mails til alle?")) return;
+                const res = await fetch('/api/admin/notify-ready', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ password })
+                });
+                const data = await res.json();
+                document.getElementById('msg').innerText = data.success ? "✅ " + data.message : "❌ " + data.error;
+            }
+        </script>
+    </body>
+    </html>`);
+});
+
+
+
 app.get('/', (req, res) => {
     res.send(`
     <!DOCTYPE html>
