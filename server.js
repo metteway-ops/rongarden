@@ -1,4 +1,9 @@
 require('dotenv').config();
+
+console.log("Tjekker miljø-variabler:");
+console.log("EMAIL_USER er:", process.env.EMAIL_USER);
+console.log("EMAIL_PASS er:", process.env.EMAIL_PASS ? "Fundet (skjult)" : "IKKE FUNDET ❌");
+
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const nodemailer = require('nodemailer');
@@ -18,6 +23,16 @@ const transporter = nodemailer.createTransport({
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     }
+});
+
+// Tilføj dette lige efter din transporter-konfiguration
+transporter.verify(function (error, success) {
+  if (error) {
+    console.log("❌ Mail-fejl: Forbindelsen til Gmail fejlede!");
+    console.log(error);
+  } else {
+    console.log("✅ Mail-systemet er klar til at sende!");
+  }
 });
 
 // Hjælpefunktion til at gruppere varer til PDF'en
