@@ -111,7 +111,7 @@ app.post('/api/order', async (req, res) => {
 
         // 3. Beregn total indtjening til ejer-mail
         const { data: allOrders } = await supabase.from('orders').select('total_price');
-        const totalIndtjeningAltid = allOrders.reduce((sum, o) => sum + (Number(o.total_price) || 0), 0);
+        const totalIndtjeningAltid = (allOrders || []).reduce((sum, o) => sum + (Number(o.total_price) || 0), 0);
 
         // 4. Generer PDF (Vi bruger finalItems, så kunden ser den SAMLEDE ordre)
         const groupedForPdf = groupCartForEmail(finalItems);
