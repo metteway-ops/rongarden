@@ -69,7 +69,7 @@ app.post('/api/order', async (req, res) => {
     console.log("Behandler ordre for:", email);
 
     try {
-        // 1. Gem i Supabase (Eksisterende logik)
+        // 1. Gem i Supabase
         const { data: existingOrder, error: findError } = await supabase
             .from('orders')
             .select('*')
@@ -78,12 +78,9 @@ app.post('/api/order', async (req, res) => {
 
         if (findError) throw new Error("Supabase Find Fejl: " + findError.message);
 
-        let finalItems = cart;
-        let finalTotal = total;
-
         if (existingOrder) {
-            finalItems = [...existingOrder.items, ...cart];
-            finalTotal = Number(existingOrder.total_price) + Number(total);
+            const finalItems = [...existingOrder.items, ...cart];
+            const finalTotal = Number(existingOrder.total_price) + Number(total);
             await supabase
                 .from('orders')
                 .update({ items: finalItems, total_price: finalTotal, customer_name: name, phone: phone })
@@ -94,8 +91,8 @@ app.post('/api/order', async (req, res) => {
                 .insert([{ customer_name: name, phone, email, items: cart, total_price: total }]);
         }
 
-        // 2. Lager-opdatering (Kører i baggrunden)
-        cart.forEach(async (item) => {
+        // 2. Lager-opdatering
+        for (const item of cart) {
             try {
                 if (item.parent_stock_group === 'hoejreb') {
                     await supabase.rpc('decrement_hoejreb_stock', { amount_to_subtract: item.stock_weight || 1 });
@@ -103,68 +100,60 @@ app.post('/api/order', async (req, res) => {
                     await supabase.rpc('decrement_stock', { row_id: item.id, amount: 1 });
                 }
             } catch (e) { console.error("Lagerfejl:", e.message); }
+        }
+
+        // 3. GENERER PDF
+        const pdfBuffer = await new Promise((resolve, reject) => {
+            const doc = new PDFDocument();
+            let buffers = [];
+            doc.on('data', buffers.push.bind(buffers));
+            doc.on('end', () => resolve(Buffer.concat(buffers)));
+            doc.on('error', reject);
+            
+            doc.fontSize(22).text('Reservation - RønGården', { align: 'center' });
+            doc.moveDown().fontSize(12).text(`Kunde: ${name}`);
+            doc.text(`Email: ${email}`);
+            doc.text(`Telefon: ${phone}`);
+            doc.text(`Dato: ${new Date().toLocaleDateString('da-DK')}`);
+            doc.moveDown().text('Bestilte varer:');
+            
+            cart.forEach(item => {
+                doc.text(`- ${item.name} (${item.price} kr/kg)`);
+            });
+
+            doc.moveDown().fontSize(14).text(`Total for denne reservation: ${total} kr.`, { bold: true });
+            doc.end();
         });
 
-        // 3. SEND SVAR TIL KUNDEN NU (Så "Sender..." forsvinder)
+        // 4. SEND MAILS (Vi venter på dem her med 'await')
+        const mailSubject = `Bekræftelse: Reservation på RønGården - ${name}`;
+        
+        await transporter.sendMail({
+            from: `"RønGården" <${process.env.EMAIL_USER}>`,
+            to: `${email}, ${process.env.EMAIL_USER}`, // Sender til både kunden OG dig selv
+            subject: mailSubject,
+            html: `
+                <div style="font-family: sans-serif; max-width: 600px;">
+                    <h2>Tak for din reservation, ${name}!</h2>
+                    <p>Vi har modtaget din bestilling på gårdkød. Du finder en oversigt i den vedhæftede PDF.</p>
+                    <p>Vi sender en mail ud så snart kødet er klar til afhentning.</p>
+                    <hr>
+                    <p><small>Dette er en kopi sendt til admin og kunde.</small></p>
+                </div>`,
+            attachments: [{ filename: 'Reservation_RonGaarden.pdf', content: pdfBuffer }]
+        });
+
+        console.log("✅ Mail sendt til kunde og admin");
+
+        // 5. SEND SVAR TIL FRONTEND (Først nu er vi færdige)
         res.json({ 
             success: true, 
-            message: existingOrder ? "Varer tilføjet til din eksisterende ordre!" : "Reservation modtaget! Tjek din mail om et øjeblik." 
+            message: existingOrder ? "Varer tilføjet til din eksisterende ordre!" : "Reservation modtaget! Vi har sendt en bekræftelse til din mail." 
         });
 
-        // 4. GENERER PDF & SEND MAIL (Sker efter res.json i baggrunden)
-        const generateAndSendMail = async () => {
-            try {
-                const pdfBuffer = await new Promise((resolve, reject) => {
-                    const doc = new PDFDocument();
-                    let buffers = [];
-                    doc.on('data', buffers.push.bind(buffers));
-                    doc.on('end', () => resolve(Buffer.concat(buffers)));
-                    doc.on('error', reject);
-                    
-                    doc.fontSize(22).text('Reservation - RønGården', { align: 'center' });
-                    doc.moveDown().fontSize(12).text(`Kunde: ${name}`);
-                    doc.text(`Telefon: ${phone}`);
-                    doc.text(`Dato: ${new Date().toLocaleDateString('da-DK')}`);
-                    doc.moveDown().text('Bestilte varer:');
-                    
-                    cart.forEach(item => {
-                        doc.text(`- ${item.name} (${item.price} kr/kg)`);
-                    });
-
-                    doc.moveDown().fontSize(14).text(`Samlet estimeret pris: ${total} kr.`);
-                    doc.moveDown().fontSize(10).text('Betaling sker ved afhentning på gården.', { oblique: true });
-                    doc.end();
-                });
-
-                const mailSubject = existingOrder ? `Opdateret reservation - ${name}` : `Bekræftelse: Reservation på RønGården`;
-                
-                await transporter.sendMail({
-                    from: `"RønGården" <${process.env.EMAIL_USER}>`,
-                    to: email,
-                    subject: mailSubject,
-                    html: `
-                        <div style="font-family: sans-serif; max-width: 600px;">
-                            <h2>Tak for din reservation, ${name}!</h2>
-                            <p>Vi har nu registreret din bestilling af gårdkød.</p>
-                            <p>Vi sender en mail ud, så snart kødet er klar til afhentning.</p>
-                            <p><b>Med venlig hilsen</b><br>RønGården</p>
-                        </div>`,
-                    attachments: [{ filename: 'Reservation_RonGaarden.pdf', content: pdfBuffer }]
-                });
-                console.log("✅ Bekræftelsesmail sendt til:", email);
-
-            } catch (err) {
-                console.error("❌ Fejl i baggrundsopgave (PDF/Mail):", err.message);
-            }
-        };
-
-        generateAndSendMail(); // Start baggrundsopgaven
-
     } catch (err) {
-        console.error("KRITISK FEJL:", err.message);
-        if (!res.headersSent) {
-            res.status(500).json({ error: "Der skete en fejl: " + err.message });
-        }
+        console.error("KRITISK FEJL:", err);
+        res.status(500).json({ success: false, error: "Der skete en fejl: " + err.message });
     }
 });
 
