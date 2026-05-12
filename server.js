@@ -20,7 +20,7 @@ const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
+        pass: process.env.EMAIL_PASS // Husk: App Password her!
     }
 });
 
@@ -97,6 +97,34 @@ app.post('/api/order', async (req, res) => {
                 await supabase.rpc('decrement_stock', { row_id: item.id, amount: 1 });
             }
         }
+
+
+
+// ... (efter lager-opdatering)
+
+        // SEND SVAR TIL KUNDEN MED DET SAMME
+        res.json({ 
+            success: true, 
+            message: "Reservation modtaget! Vi sender en bekræftelse på mail." 
+        });
+
+        // SEND MAIL I BAGGRUNDEN (Vi fjerner 'await' herfra)
+        transporter.sendMail({
+            from: `"RønGården" <${process.env.EMAIL_USER}>`,
+            to: `${email}, ${process.env.EMAIL_USER}`,
+            subject: `Bekræftelse: Reservation - ${name}`,
+            html: `<h3>Tak for din reservation, ${name}</h3>...` 
+        }).then(() => {
+            console.log("Baggrundsmail sendt succesfuldt");
+        }).catch((err) => {
+            console.error("Fejl i baggrundsmail:", err);
+        });
+
+    } catch (err) {
+        // ... fejlhåndtering
+    }
+
+
 
         // 3. Lav en simpel tekst-liste til mailen i stedet for PDF
         const vareListeHtml = cart.map(item => `<li>${item.name} (~${item.estimated_weight} kg)</li>`).join('');
