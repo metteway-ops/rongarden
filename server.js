@@ -63,11 +63,12 @@ app.get('/api/products', async (req, res) => {
     }
 });
 
+
 app.post('/api/order', async (req, res) => {
     const { name, phone, email, cart, total } = req.body;
 
     try {
-        // 1. Gem i Supabase
+        // 1. Gem eller opdater i Supabase
         const { data: existingOrder, error: findError } = await supabase
             .from('orders')
             .select('*')
@@ -98,39 +99,11 @@ app.post('/api/order', async (req, res) => {
             }
         }
 
-
-
-// ... (efter lager-opdatering)
-
-        // SEND SVAR TIL KUNDEN MED DET SAMME
-        res.json({ 
-            success: true, 
-            message: "Reservation modtaget! Vi sender en bekræftelse på mail." 
-        });
-
-        // SEND MAIL I BAGGRUNDEN (Vi fjerner 'await' herfra)
-        transporter.sendMail({
-            from: `"RønGården" <${process.env.EMAIL_USER}>`,
-            to: `${email}, ${process.env.EMAIL_USER}`,
-            subject: `Bekræftelse: Reservation - ${name}`,
-            html: `<h3>Tak for din reservation, ${name}</h3>...` 
-        }).then(() => {
-            console.log("Baggrundsmail sendt succesfuldt");
-        }).catch((err) => {
-            console.error("Fejl i baggrundsmail:", err);
-        });
-
-    } catch (err) {
-        // ... fejlhåndtering
-    }
-
-
-
-        // 3. Lav en simpel tekst-liste til mailen i stedet for PDF
+        // 3. Forbered mail-indhold
         const vareListeHtml = cart.map(item => `<li>${item.name} (~${item.estimated_weight} kg)</li>`).join('');
 
-        // 4. Send mailen (Uden attachments)
-        await transporter.sendMail({
+        // 4. Send mail i baggrunden (uden await for at svare kunden hurtigt)
+        transporter.sendMail({
             from: `"RønGården" <${process.env.EMAIL_USER}>`,
             to: `${email}, ${process.env.EMAIL_USER}`,
             subject: `Bekræftelse: Reservation på RønGården - ${name}`,
@@ -146,17 +119,25 @@ app.post('/api/order', async (req, res) => {
                     <hr>
                     <p><small>Dette er en bekræftelse sendt til både kunde og admin.</small></p>
                 </div>`
-        });
+        }).catch(err => console.error("Baggrunds-mail fejl:", err));
 
-        res.json({ 
+        // 5. SEND KUN ÉT SVAR TIL KLIENTEN
+        return res.json({ 
             success: true, 
             message: "Reservation modtaget! Vi har sendt en bekræftelse til din mail." 
         });
 
     } catch (err) {
-        console.error("Fejl:", err);
-        res.status(500).json({ success: false, error: "Fejl: " + err.message });
+        console.error("Fejl i order-rute:", err);
+        // Sørg for kun at sende fejl-svar hvis vi ikke allerede har sendt et succes-svar
+        if (!res.headersSent) {
+            return res.status(500).json({ success: false, error: "Fejl: " + err.message });
+        }
     }
+});
+
+
+
 });// ... her slutter din app.post('/api/order')
 
 // >>> INDSÆT DETTE HER (API TIL AT SENDE MAILS) <<<
