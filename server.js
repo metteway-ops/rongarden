@@ -69,7 +69,7 @@ app.post('/api/order', async (req, res) => {
     console.log("Behandler ordre for:", email);
 
     try {
-        // 1. Gem i Supabase
+        // 1. Gem i Supabase (Vi sikrer os at data er gemt først)
         const { data: existingOrder, error: findError } = await supabase
             .from('orders')
             .select('*')
@@ -102,7 +102,7 @@ app.post('/api/order', async (req, res) => {
             } catch (e) { console.error("Lagerfejl:", e.message); }
         }
 
-        // 3. GENERER PDF
+        // 3. GENERER PDF (Holdes i hukommelsen som buffer)
         const pdfBuffer = await new Promise((resolve, reject) => {
             const doc = new PDFDocument();
             let buffers = [];
@@ -125,38 +125,41 @@ app.post('/api/order', async (req, res) => {
             doc.end();
         });
 
-        // 4. SEND MAILS (Vi venter på dem her med 'await')
-        const mailSubject = `Bekræftelse: Reservation på RønGården - ${name}`;
-        
+        // 4. SEND MAILS (Her sender vi til BÅDE kunde og dig selv)
+        // Ved at bruge 'await' her, sikrer vi at mailen sendes før vi svarer kunden
         await transporter.sendMail({
             from: `"RønGården" <${process.env.EMAIL_USER}>`,
-            to: `${email}, ${process.env.EMAIL_USER}`, // Sender til både kunden OG dig selv
-            subject: mailSubject,
+            to: `${email}, ${process.env.EMAIL_USER}`, // Tilføjer din egen mail som modtager
+            subject: `Bekræftelse: Din reservation på RønGården - ${name}`,
             html: `
-                <div style="font-family: sans-serif; max-width: 600px;">
-                    <h2>Tak for din reservation, ${name}!</h2>
-                    <p>Vi har modtaget din bestilling på gårdkød. Du finder en oversigt i den vedhæftede PDF.</p>
-                    <p>Vi sender en mail ud så snart kødet er klar til afhentning.</p>
+                <div style="font-family: sans-serif; max-width: 600px; border: 1px solid #eee; padding: 20px;">
+                    <h2 style="color: #2d5a27;">Tak for din reservation, ${name}!</h2>
+                    <p>Vi har modtaget din bestilling. Du finder en oversigt i den vedhæftede PDF-fil.</p>
+                    <p><strong>Vigtigt:</strong> Vi sender en mail ud så snart kødet er klar til afhentning på gården.</p>
                     <hr>
-                    <p><small>Dette er en kopi sendt til admin og kunde.</small></p>
+                    <p style="font-size: 12px; color: #666;">Dette er en automatisk bekræftelse fra RønGården.</p>
                 </div>`,
             attachments: [{ filename: 'Reservation_RonGaarden.pdf', content: pdfBuffer }]
         });
 
-        console.log("✅ Mail sendt til kunde og admin");
+        console.log("✅ Mail sendt succesfuldt");
 
-        // 5. SEND SVAR TIL FRONTEND (Først nu er vi færdige)
-        res.json({ 
+        // 5. SEND SVAR TIL FRONTEND
+        // Dette frigiver "Sender..." knappen i browseren
+        return res.json({ 
             success: true, 
-            message: existingOrder ? "Varer tilføjet til din eksisterende ordre!" : "Reservation modtaget! Vi har sendt en bekræftelse til din mail." 
+            message: existingOrder ? "Varer tilføjet til din eksisterende ordre!" : "Reservation modtaget! Tjek din indbakke for bekræftelse." 
         });
 
     } catch (err) {
-        console.error("KRITISK FEJL:", err);
-        res.status(500).json({ success: false, error: "Der skete en fejl: " + err.message });
+        console.error("KRITISK FEJL I ORDRE-FLOW:", err);
+        // Hvis noget går galt, sender vi fejlen til frontenden så den ikke bare "hænger"
+        return res.status(500).json({ 
+            success: false, 
+            error: "Der skete en fejl under din reservation. Prøv igen eller kontakt os direkte." 
+        });
     }
 });
-
 // ... her slutter din app.post('/api/order')
 
 // >>> INDSÆT DETTE HER (API TIL AT SENDE MAILS) <<<
