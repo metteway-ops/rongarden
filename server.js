@@ -7,7 +7,6 @@ console.log("EMAIL_PASS er:", process.env.EMAIL_PASS ? "Fundet (skjult)" : "IKKE
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const nodemailer = require('nodemailer');
-const PDFDocument = require('pdfkit');
 
 const app = express();
 
@@ -66,17 +65,16 @@ app.get('/api/products', async (req, res) => {
 
 app.post('/api/order', async (req, res) => {
     const { name, phone, email, cart, total } = req.body;
-    console.log("Behandler ordre for:", email);
 
     try {
-        // 1. Gem i Supabase (Vi sikrer os at data er gemt først)
+        // 1. Gem i Supabase
         const { data: existingOrder, error: findError } = await supabase
             .from('orders')
             .select('*')
             .eq('email', email)
             .maybeSingle();
 
-        if (findError) throw new Error("Supabase Find Fejl: " + findError.message);
+        if (findError) throw new Error("Supabase fejl: " + findError.message);
 
         if (existingOrder) {
             const finalItems = [...existingOrder.items, ...cart];
@@ -93,74 +91,45 @@ app.post('/api/order', async (req, res) => {
 
         // 2. Lager-opdatering
         for (const item of cart) {
-            try {
-                if (item.parent_stock_group === 'hoejreb') {
-                    await supabase.rpc('decrement_hoejreb_stock', { amount_to_subtract: item.stock_weight || 1 });
-                } else {
-                    await supabase.rpc('decrement_stock', { row_id: item.id, amount: 1 });
-                }
-            } catch (e) { console.error("Lagerfejl:", e.message); }
+            if (item.parent_stock_group === 'hoejreb') {
+                await supabase.rpc('decrement_hoejreb_stock', { amount_to_subtract: item.stock_weight || 1 });
+            } else {
+                await supabase.rpc('decrement_stock', { row_id: item.id, amount: 1 });
+            }
         }
 
-        // 3. GENERER PDF (Holdes i hukommelsen som buffer)
-        const pdfBuffer = await new Promise((resolve, reject) => {
-            const doc = new PDFDocument();
-            let buffers = [];
-            doc.on('data', buffers.push.bind(buffers));
-            doc.on('end', () => resolve(Buffer.concat(buffers)));
-            doc.on('error', reject);
-            
-            doc.fontSize(22).text('Reservation - RønGården', { align: 'center' });
-            doc.moveDown().fontSize(12).text(`Kunde: ${name}`);
-            doc.text(`Email: ${email}`);
-            doc.text(`Telefon: ${phone}`);
-            doc.text(`Dato: ${new Date().toLocaleDateString('da-DK')}`);
-            doc.moveDown().text('Bestilte varer:');
-            
-            cart.forEach(item => {
-                doc.text(`- ${item.name} (${item.price} kr/kg)`);
-            });
+        // 3. Lav en simpel tekst-liste til mailen i stedet for PDF
+        const vareListeHtml = cart.map(item => `<li>${item.name} (~${item.estimated_weight} kg)</li>`).join('');
 
-            doc.moveDown().fontSize(14).text(`Total for denne reservation: ${total} kr.`, { bold: true });
-            doc.end();
-        });
-
-        // 4. SEND MAILS (Her sender vi til BÅDE kunde og dig selv)
-        // Ved at bruge 'await' her, sikrer vi at mailen sendes før vi svarer kunden
+        // 4. Send mailen (Uden attachments)
         await transporter.sendMail({
             from: `"RønGården" <${process.env.EMAIL_USER}>`,
-            to: `${email}, ${process.env.EMAIL_USER}`, // Tilføjer din egen mail som modtager
-            subject: `Bekræftelse: Din reservation på RønGården - ${name}`,
+            to: `${email}, ${process.env.EMAIL_USER}`,
+            subject: `Bekræftelse: Reservation på RønGården - ${name}`,
             html: `
-                <div style="font-family: sans-serif; max-width: 600px; border: 1px solid #eee; padding: 20px;">
+                <div style="font-family: sans-serif; max-width: 600px; border: 1px solid #ddd; padding: 20px; border-radius: 10px;">
                     <h2 style="color: #2d5a27;">Tak for din reservation, ${name}!</h2>
-                    <p>Vi har modtaget din bestilling. Du finder en oversigt i den vedhæftede PDF-fil.</p>
-                    <p><strong>Vigtigt:</strong> Vi sender en mail ud så snart kødet er klar til afhentning på gården.</p>
+                    <p>Vi har modtaget din bestilling på følgende:</p>
+                    <ul>
+                        ${vareListeHtml}
+                    </ul>
+                    <p><strong>Total (estimeret): ${total} kr.</strong></p>
+                    <p>Betaling sker ved afhentning. Vi sender en mail så snart kødet er klar.</p>
                     <hr>
-                    <p style="font-size: 12px; color: #666;">Dette er en automatisk bekræftelse fra RønGården.</p>
-                </div>`,
-            attachments: [{ filename: 'Reservation_RonGaarden.pdf', content: pdfBuffer }]
+                    <p><small>Dette er en bekræftelse sendt til både kunde og admin.</small></p>
+                </div>`
         });
 
-        console.log("✅ Mail sendt succesfuldt");
-
-        // 5. SEND SVAR TIL FRONTEND
-        // Dette frigiver "Sender..." knappen i browseren
-        return res.json({ 
+        res.json({ 
             success: true, 
-            message: existingOrder ? "Varer tilføjet til din eksisterende ordre!" : "Reservation modtaget! Tjek din indbakke for bekræftelse." 
+            message: "Reservation modtaget! Vi har sendt en bekræftelse til din mail." 
         });
 
     } catch (err) {
-        console.error("KRITISK FEJL I ORDRE-FLOW:", err);
-        // Hvis noget går galt, sender vi fejlen til frontenden så den ikke bare "hænger"
-        return res.status(500).json({ 
-            success: false, 
-            error: "Der skete en fejl under din reservation. Prøv igen eller kontakt os direkte." 
-        });
+        console.error("Fejl:", err);
+        res.status(500).json({ success: false, error: "Fejl: " + err.message });
     }
-});
-// ... her slutter din app.post('/api/order')
+});// ... her slutter din app.post('/api/order')
 
 // >>> INDSÆT DETTE HER (API TIL AT SENDE MAILS) <<<
 app.post('/api/admin/notify-ready', async (req, res) => {
