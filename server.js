@@ -106,15 +106,15 @@ app.post('/api/order', async (req, res) => {
             console.error("Lager-opdatering fejlede, men fortsætter ordre:", stockErr.message);
         }
 
-        // 3. Forbered og SEND mail (Vi afventer afsendelse, FØR vi svarer kunden)
+// 3. Forbered og SEND mail
         const vareListeHtml = cart.map(item => `<li>${item.name} (~${item.estimated_weight} kg)</li>`).join('');
         
-        console.log(`Forsøger afsendelse af mail til ${email}...`);
+        console.log(`Sender bekræftelse til kunden: ${email}`);
         
-        // Vi bruger 'await' her, så Render IKKE lukker serveren ned midt i processen
-        const info = await transporter.sendMail({
+        // Mail 1: Til Kunden
+        await transporter.sendMail({
             from: `"RønGården" <${process.env.EMAIL_USER}>`,
-            to: `${email}, ${process.env.EMAIL_USER}`, // Sender til både kunde og dig selv
+            to: email, // KUN til kunden
             subject: `Bekræftelse: Reservation på RønGården - ${name}`,
             html: `
                 <div style="font-family: sans-serif; max-width: 600px; border: 1px solid #ddd; padding: 20px; border-radius: 10px;">
@@ -126,9 +126,24 @@ app.post('/api/order', async (req, res) => {
                 </div>`
         });
 
-        console.log("✅ Mail sendt succesfuldt! Gmail ID:", info.messageId);
+        console.log(`Sender kopi til admin: ${process.env.EMAIL_USER}`);
 
-        // 4. Send succes-svar til kunden (Nu hvor alt ER udført)
+        // Mail 2: Til Dig Selv (Admin-notifikation)
+        await transporter.sendMail({
+            from: `"RønGården System" <${process.env.EMAIL_USER}>`,
+            to: process.env.EMAIL_USER, // KUN til dig selv
+            subject: `🚨 NY RESERVATION: ${name}`,
+            html: `<h3>Ny reservation modtaget!</h3>
+                   <p><b>Navn:</b> ${name}</p>
+                   <p><b>E-mail:</b> ${email}</p>
+                   <p><b>Telefon:</b> ${phone}</p>
+                   <ul>${vareListeHtml}</ul>
+                   <p><b>Total:</b> ${total} kr.</p>`
+        });
+
+        console.log("✅ Begge mails afsendt og godkendt af Gmail!");
+
+        // 4. Send succes-svar til kunden
         return res.json({ 
             success: true, 
             message: "Reservation modtaget! Vi har sendt en bekræftelse til din mail." 
