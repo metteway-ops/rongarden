@@ -78,7 +78,6 @@ app.post('/api/order', async (req, res) => {
         if (findError) throw new Error("Supabase fejl: " + findError.message);
 
         if (existingOrder) {
-            // Sikring mod at eksisterende varer ikke er et array
             const currentItems = Array.isArray(existingOrder.items) ? existingOrder.items : [];
             const finalItems = [...currentItems, ...cart];
             const finalTotal = Number(existingOrder.total_price || 0) + Number(total);
@@ -105,20 +104,27 @@ app.post('/api/order', async (req, res) => {
         // 3. Forbered mail-indhold
         const vareListeHtml = cart.map(item => `<li>${item.name} (~${item.estimated_weight} kg)</li>`).join('');
 
-        // 4. Send mail i baggrunden
-        transporter.sendMail({
-            from: `"RønGården" <${process.env.EMAIL_USER}>`,
-            to: `${email}, ${process.env.EMAIL_USER}`,
-            subject: `Bekræftelse: Reservation på RønGården - ${name}`,
-            html: `
-                <div style="font-family: sans-serif; max-width: 600px; border: 1px solid #ddd; padding: 20px; border-radius: 10px;">
-                    <h2 style="color: #2d5a27;">Tak for din reservation, ${name}!</h2>
-                    <p>Vi har modtaget din bestilling på følgende:</p>
-                    <ul>${vareListeHtml}</ul>
-                    <p><strong>Total (estimeret): ${total} kr.</strong></p>
-                    <p>Betaling sker ved afhentning. Vi sender en mail så snart kødet er klar.</p>
-                </div>`
-        }).catch(err => console.error("Baggrunds-mail fejl:", err));
+        // 4. Send mail (RETTET: Bruger nu await, så Render ikke lukker processen før afsendelse)
+        console.log(`Forsøger at sende mail til kunde (${email}) og sælger (${process.env.EMAIL_USER})...`);
+        try {
+            await transporter.sendMail({
+                from: `"RønGården" <${process.env.EMAIL_USER}>`,
+                to: `${email}, ${process.env.EMAIL_USER}`,
+                subject: `Bekræftelse: Reservation på RønGården - ${name}`,
+                html: `
+                    <div style="font-family: sans-serif; max-width: 600px; border: 1px solid #ddd; padding: 20px; border-radius: 10px;">
+                        <h2 style="color: #2d5a27;">Tak for din reservation, ${name}!</h2>
+                        <p>Vi har modtaget din bestilling på følgende:</p>
+                        <ul>${vareListeHtml}</ul>
+                        <p><strong>Total (estimeret): ${total} kr.</strong></p>
+                        <p>Betaling sker ved afhentning. Vi sender en mail så snart kødet er klar.</p>
+                    </div>`
+            });
+            console.log("✅ Mail blev sendt afsted uden problemer!");
+        } catch (mailErr) {
+            console.error("❌ Kritisk fejl under afsendelse af mail via Gmail:", mailErr);
+            // Vi vælger ikke at crashe hele ordren her, så kunden stadig ser en succes-skærm
+        }
 
         // 5. Send succes-svar
         return res.json({ 
