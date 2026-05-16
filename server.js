@@ -24,14 +24,14 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// Tilføj dette lige efter din transporter-konfiguration
+// Verificer mail-konfiguration
 transporter.verify(function (error, success) {
-  if (error) {
-    console.log("❌ Mail-fejl: Forbindelsen til Gmail fejlede!");
-    console.log(error);
-  } else {
-    console.log("✅ Mail-systemet er klar til at sende!");
-  }
+    if (error) {
+        console.log("❌ Mail-fejl: Forbindelsen til Gmail fejlede!");
+        console.log(error);
+    } else {
+        console.log("✅ Mail-systemet er klar til at sende!");
+    }
 });
 
 // Hjælpefunktion til at gruppere varer til PDF'en
@@ -63,9 +63,7 @@ app.get('/api/products', async (req, res) => {
     }
 });
 
-
-
-// --- START PÅ ORDRE RUTE ---
+// --- ORDRE RUTE ---
 app.post('/api/order', async (req, res) => {
     const { name, phone, email, cart, total } = req.body;
 
@@ -80,17 +78,16 @@ app.post('/api/order', async (req, res) => {
         if (findError) throw new Error("Supabase fejl: " + findError.message);
 
         if (existingOrder) {
-    // Sørg for at existingOrder.items rent faktisk er et array, ellers start med et tomt array
-    const currentItems = Array.isArray(existingOrder.items) ? existingOrder.items : [];
-    const finalItems = [...currentItems, ...cart];
-    
-    const finalTotal = Number(existingOrder.total_price || 0) + Number(total);
-    
-    await supabase
-        .from('orders')
-        .update({ items: finalItems, total_price: finalTotal, customer_name: name, phone: phone })
-        .eq('id', existingOrder.id);
-}
+            // Sikring mod at eksisterende varer ikke er et array
+            const currentItems = Array.isArray(existingOrder.items) ? existingOrder.items : [];
+            const finalItems = [...currentItems, ...cart];
+            const finalTotal = Number(existingOrder.total_price || 0) + Number(total);
+            
+            await supabase
+                .from('orders')
+                .update({ items: finalItems, total_price: finalTotal, customer_name: name, phone: phone })
+                .eq('id', existingOrder.id);
+        } else {
             await supabase
                 .from('orders')
                 .insert([{ customer_name: name, phone, email, items: cart, total_price: total }]);
@@ -136,12 +133,8 @@ app.post('/api/order', async (req, res) => {
         }
     }
 }); 
-// --- SLUT PÅ ORDRE RUTE ---
 
-
-// ... her slutter din app.post('/api/order')
-
-// >>> INDSÆT DETTE HER (API TIL AT SENDE MAILS) <<<
+// --- ADMIN NOTIFIKATIONER ---
 app.post('/api/admin/notify-ready', async (req, res) => {
     const { password } = req.body;
     if (password !== process.env.ADMIN_PASSWORD) {
@@ -173,7 +166,7 @@ app.post('/api/admin/notify-ready', async (req, res) => {
 });
 
 
-// --- FRONTEND ---
+// --- FRONTEND VIEWS ---
 
 app.get('/admin-gaarden', (req, res) => {
     res.send(`
@@ -194,10 +187,7 @@ app.get('/admin-gaarden', (req, res) => {
             <h2>Gård-Kontrol 🚜</h2>
             <p>Send "snart klar" mail til alle kunder</p>
             <input type="password" id="pw" placeholder="Admin kodeord">
-          
-  <!-- Tilføj 'event' som parameter i funktionskaldet -->
-<button class="btn" onclick="submitOrder(event)">Send reservation</button>
-	
+            <button onclick="go()">Send mails nu</button>
             <p id="msg"></p>
         </div>
         <script>
@@ -217,8 +207,6 @@ app.get('/admin-gaarden', (req, res) => {
     </html>`);
 });
 
-
-
 app.get('/', (req, res) => {
     res.send(`
     <!DOCTYPE html>
@@ -232,12 +220,7 @@ app.get('/', (req, res) => {
             :root { --green: #2d5a27; --clay: #a67c52; --cream: #f9f7f2; --white: #ffffff; --text: #34495e; }
             body { font-family: 'Inter', sans-serif; background: var(--cream); margin: 0; color: var(--text); line-height: 1.6; }
 
-.footer-logo {
-    display: block;
-    margin: 4rem auto 2rem; /* Skaber luft over logoet */
-    max-width: 150px;       /* Juster størrelsen her */
-    opacity: 0.8;           /* Gør det lidt diskret */
-}
+            .footer-logo { display: block; margin: 4rem auto 2rem; max-width: 150px; opacity: 0.8; }
             
             header { background: var(--white); padding: 1rem 5%; border-bottom: 1px solid rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 1000; display: flex; justify-content: space-between; align-items: center; }
             .logo-text { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 700; color: var(--green); text-decoration: none; cursor:pointer; }
@@ -300,7 +283,7 @@ app.get('/', (req, res) => {
                     </div>
                 </div>
                 <div id="product-list-inner" class="product-grid">Henter varer...</div>
-<img src="/Røn_LOGO.jpg" alt="RønGården Logo" class="footer-logo">
+                <img src="/Røn_LOGO.jpg" alt="RønGården Logo" class="footer-logo">
             </section>
 
            <section id="coming" class="section">
@@ -339,7 +322,7 @@ app.get('/', (req, res) => {
                         </div>
                     </div>
                 </div>
-<img src="/Røn_LOGO.jpg" alt="RønGården Logo" class="footer-logo">
+                <img src="/Røn_LOGO.jpg" alt="RønGården Logo" class="footer-logo">
             </section>
 
             <section id="about" class="section">
@@ -351,31 +334,31 @@ app.get('/', (req, res) => {
                     <p>Dette lukkede kredsløb er din garanti for høj dyrevelfærd, minimalt spild og en bæredygtig vej fra jord til bord.</p>
                     <img src="/Økosystem.jpg" alt="Visuel præsentation" style="width:100%; border-radius:24px; margin-top:2rem; border: 1px solid rgba(0,0,0,0.03);" />
                 </div>
-<img src="/Røn_LOGO.jpg" alt="RønGården Logo" class="footer-logo">
+                <img src="/Røn_LOGO.jpg" alt="RønGården Logo" class="footer-logo">
             </section>
         </div>
 
-<div id="cart-modal" onclick="if(event.target==this) toggleCart()">
-    <div class="modal-content">
-        <h2 style="font-family:'Playfair Display'">Din Reservation</h2>
-        <div id="cart-items-list"></div>
-        <div style="margin-top:20px; font-size:1.2rem; font-weight:700; display:flex; justify-content:space-between;">
-            <span>Total (Estimeret):</span>
-            <span id="modal-total">0</span> kr.
-        </div>
+        <div id="cart-modal" onclick="if(event.target==this) toggleCart()">
+            <div class="modal-content">
+                <h2 style="font-family:'Playfair Display'">Din Reservation</h2>
+                <div id="cart-items-list"></div>
+                <div style="margin-top:20px; font-size:1.2rem; font-weight:700; display:flex; justify-content:space-between;">
+                    <span>Total (Estimeret):</span>
+                    <span><span id="modal-total">0</span> kr.</span>
+                </div>
 
-        <div id="checkout-form" style="display:none; margin-top:20px; border-top:1px solid #eee; padding-top:20px;">
-            <input type="text" id="cust-name" placeholder="Dit navn" style="width:100%; padding:12px; margin-bottom:10px; border-radius:12px; border:1px solid #ddd; box-sizing: border-box;">
-            <input type="email" id="cust-email" placeholder="Din e-mail" style="width:100%; padding:12px; margin-bottom:10px; border-radius:12px; border:1px solid #ddd; box-sizing: border-box;">
-            <input type="tel" id="cust-phone" placeholder="Dit telefonnummer" style="width:100%; padding:12px; margin-bottom:15px; border-radius:12px; border:1px solid #ddd; box-sizing: border-box;">
-            <button class="btn" onclick="submitOrder()">Send reservation</button>
+                <div id="checkout-form" style="display:none; margin-top:20px; border-top:1px solid #eee; padding-top:20px;">
+                    <input type="text" id="cust-name" placeholder="Dit navn" style="width:100%; padding:12px; margin-bottom:10px; border-radius:12px; border:1px solid #ddd; box-sizing: border-box;">
+                    <input type="email" id="cust-email" placeholder="Din e-mail" style="width:100%; padding:12px; margin-bottom:10px; border-radius:12px; border:1px solid #ddd; box-sizing: border-box;">
+                    <input type="tel" id="cust-phone" placeholder="Dit telefonnummer" style="width:100%; padding:12px; margin-bottom:15px; border-radius:12px; border:1px solid #ddd; box-sizing: border-box;">
+                    <button class="btn" onclick="submitOrder(event)">Send reservation</button>
+                </div>
+                <div id="modal-buttons" style="display:flex; gap:10px; margin-top:25px;">
+                    <button class="btn-secondary" onclick="clearCart()">Tøm kurv</button>
+                    <button class="btn" onclick="showCheckoutForm()">Gå til bestilling</button>
+                </div>
+            </div>
         </div>
-        <div id="modal-buttons" style="display:flex; gap:10px; margin-top:25px;">
-            <button class="btn-secondary" onclick="clearCart()">Tøm kurv</button>
-            <button class="btn" onclick="showCheckoutForm()">Gå til bestilling</button>
-        </div>
-    </div>
-</div>
 
         <div id="cart-float">
             <span>Total: <strong id="total-price">0</strong> kr.</span>
@@ -397,6 +380,7 @@ app.get('/', (req, res) => {
 
             function render() {
                 const container = document.getElementById('product-list-inner');
+                if (!container) return;
                 container.innerHTML = products.map(p => {
                     const weight = p.stock_weight || 1;
                     const displayStock = p.parent_stock_group === 'hoejreb' ? Math.floor(p.stock / weight) : p.stock;
@@ -413,7 +397,7 @@ app.get('/', (req, res) => {
                             
                             <div class="product-price">
                                 <span class="price-label">Estimeret pris pr. udskæring:</span>
-                                ~\${estPrice} kr. <small style="font-size:0.7rem; color:#999; font-weight:400;">(\${p.price} kr/kg)</small>
+                                ~\\ \${estPrice} kr. <small style="font-size:0.7rem; color:#999; font-weight:400;">(\${p.price} kr/kg)</small>
                             </div>
                             
                             <button class="btn" \${displayStock <= 0 ? 'disabled' : ''} onclick="addToCart(\${p.id})">
@@ -445,7 +429,6 @@ app.get('/', (req, res) => {
                 document.getElementById('cart-count').innerText = cart.length;
                 document.getElementById('cart-float').style.display = cart.length > 0 ? 'flex' : 'none';
                 
-                // Gruppering til frontend visning
                 const groups = cart.reduce((acc, item) => {
                     acc[item.name] = (acc[item.name] || 0) + 1;
                     return acc;
@@ -471,53 +454,53 @@ app.get('/', (req, res) => {
 
             function clearCart() { location.reload(); }
 
-// Viser formularen og skjuler "Gå til bestilling"-knappen
-function showCheckoutForm() {
-    document.getElementById('checkout-form').style.display = 'block';
-    document.getElementById('modal-buttons').style.display = 'none';
-}
+            function showCheckoutForm() {
+                document.getElementById('checkout-form').style.display = 'block';
+                document.getElementById('modal-buttons').style.display = 'none';
+            }
 
-// Den funktion der faktisk sender ordren til din server
-async function submitOrder(event) { // <--- Modtag event her
-    const name = document.getElementById('cust-name').value;
-    const email = document.getElementById('cust-email').value;
-    const phone = document.getElementById('cust-phone').value;
+            async function submitOrder(event) {
+                const name = document.getElementById('cust-name').value;
+                const email = document.getElementById('cust-email').value;
+                const phone = document.getElementById('cust-phone').value;
 
-    if(!name || !email || !phone) {
-        alert("Udfyld venligst alle felter, så vi kan bekræfte din reservation.");
-        return;
-    }
-    
-    const submitBtn = event.target; // <--- Gem reference til knappen sikkert
-    submitBtn.disabled = true;
-    submitBtn.innerText = "Sender...";
+                if(!name || !email || !phone) {
+                    alert("Udfyld venligst alle felter, så vi kan bekræfte din reservation.");
+                    return;
+                }
+                
+                const submitBtn = event.target;
+                submitBtn.disabled = true;
+                submitBtn.innerText = "Sender...";
 
-    const total = document.getElementById('total-price').innerText;
-    
-    try {
-        const res = await fetch('/api/order', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({name, email, phone, cart, total})
-        });
-        
-        const data = await res.json(); 
-        
-        if (res.ok && data.success) {
-            alert(data.message); 
-            location.reload();
-        } else {
-            // Hvis backenden returnerede en fejl (f.eks. status 500)
-            alert(data.error || "Der skete en ukendt fejl på serveren.");
-            submitBtn.disabled = false;
-            submitBtn.innerText = "Send reservation";
-        }
-    } catch (err) {
-        alert("Der skete en netværksfejl. Prøv venligst igen.");
-        submitBtn.disabled = false;
-        submitBtn.innerText = "Send reservation";
-    }
-}
+                const total = document.getElementById('total-price').innerText;
+                
+                try {
+                    const res = await fetch('/api/order', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({name, email, phone, cart, total})
+                    });
+                    const data = await res.json(); 
+                    
+                    if (res.ok && data.success) {
+                        alert(data.message); 
+                        location.reload();
+                    } else {
+                        alert(data.error || "Der skete en fejl under behandlingen af din ordre.");
+                        submitBtn.disabled = false;
+                        submitBtn.innerText = "Send reservation";
+                    }
+                } catch (err) {
+                    alert("Der skete en netværksfejl. Prøv venligst igen.");
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = "Send reservation";
+                }
+            }
+        </script>
+    </body>
+    </html>`);
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => { console.log('RønGården online på port ' + PORT); });
