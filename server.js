@@ -80,13 +80,17 @@ app.post('/api/order', async (req, res) => {
         if (findError) throw new Error("Supabase fejl: " + findError.message);
 
         if (existingOrder) {
-            const finalItems = [...existingOrder.items, ...cart];
-            const finalTotal = Number(existingOrder.total_price) + Number(total);
-            await supabase
-                .from('orders')
-                .update({ items: finalItems, total_price: finalTotal, customer_name: name, phone: phone })
-                .eq('id', existingOrder.id);
-        } else {
+    // Sørg for at existingOrder.items rent faktisk er et array, ellers start med et tomt array
+    const currentItems = Array.isArray(existingOrder.items) ? existingOrder.items : [];
+    const finalItems = [...currentItems, ...cart];
+    
+    const finalTotal = Number(existingOrder.total_price || 0) + Number(total);
+    
+    await supabase
+        .from('orders')
+        .update({ items: finalItems, total_price: finalTotal, customer_name: name, phone: phone })
+        .eq('id', existingOrder.id);
+}
             await supabase
                 .from('orders')
                 .insert([{ customer_name: name, phone, email, items: cart, total_price: total }]);
@@ -190,7 +194,10 @@ app.get('/admin-gaarden', (req, res) => {
             <h2>Gård-Kontrol 🚜</h2>
             <p>Send "snart klar" mail til alle kunder</p>
             <input type="password" id="pw" placeholder="Admin kodeord">
-            <button onclick="go()">Send mails nu</button>
+          
+  <!-- Tilføj 'event' som parameter i funktionskaldet -->
+<button class="btn" onclick="submitOrder(event)">Send reservation</button>
+	
             <p id="msg"></p>
         </div>
         <script>
@@ -471,7 +478,7 @@ function showCheckoutForm() {
 }
 
 // Den funktion der faktisk sender ordren til din server
-async function submitOrder() {
+async function submitOrder(event) { // <--- Modtag event her
     const name = document.getElementById('cust-name').value;
     const email = document.getElementById('cust-email').value;
     const phone = document.getElementById('cust-phone').value;
@@ -481,9 +488,9 @@ async function submitOrder() {
         return;
     }
     
-    // Deaktiver knappen så kunden ikke trykker 10 gange
-    event.target.disabled = true;
-    event.target.innerText = "Sender...";
+    const submitBtn = event.target; // <--- Gem reference til knappen sikkert
+    submitBtn.disabled = true;
+    submitBtn.innerText = "Sender...";
 
     const total = document.getElementById('total-price').innerText;
     
@@ -493,20 +500,24 @@ async function submitOrder() {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({name, email, phone, cart, total})
         });
+        
         const data = await res.json(); 
-        alert(data.message); 
-        location.reload();
+        
+        if (res.ok && data.success) {
+            alert(data.message); 
+            location.reload();
+        } else {
+            // Hvis backenden returnerede en fejl (f.eks. status 500)
+            alert(data.error || "Der skete en ukendt fejl på serveren.");
+            submitBtn.disabled = false;
+            submitBtn.innerText = "Send reservation";
+        }
     } catch (err) {
-        alert("Der skete en fejl. Prøv venligst igen.");
-        event.target.disabled = false;
-        event.target.innerText = "Send reservation";
+        alert("Der skete en netværksfejl. Prøv venligst igen.");
+        submitBtn.disabled = false;
+        submitBtn.innerText = "Send reservation";
     }
 }
-
-        </script>
-    </body>
-    </html>`);
-});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => { console.log('RønGården online på port ' + PORT); });
