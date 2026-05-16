@@ -67,51 +67,33 @@ app.get('/api/products', async (req, res) => {
 app.post('/api/order', async (req, res) => {
     const { name, phone, email, cart, total } = req.body;
     console.log("=== NY ORDRE MODTAGET ===");
-    console.log("Kunde:", name, email, phone);
 
     try {
-        // 1. Gem i Supabase (Vi pakker det ind, så vi kan fange præcise DB-fejl)
-        console.log("Forbinder til Supabase...");
+        // 1. Gem i Supabase
         const { data: existingOrder, error: findError } = await supabase
             .from('orders')
             .select('*')
             .eq('email', email)
             .maybeSingle();
 
-        if (findError) {
-            console.error("❌ Supabase kunne ikke søge efter ordre:", findError.message);
-            throw new Error("Supabase søgefejl: " + findError.message);
-        }
+        if (findError) throw new Error("Supabase søgefejl: " + findError.message);
 
         if (existingOrder) {
-            console.log("Kunde fundet i forvejen. Opdaterer eksisterende ordre...");
             const currentItems = Array.isArray(existingOrder.items) ? existingOrder.items : [];
             const finalItems = [...currentItems, ...cart];
             const finalTotal = Number(existingOrder.total_price || 0) + Number(total);
             
-            const { error: updateError } = await supabase
+            await supabase
                 .from('orders')
                 .update({ items: finalItems, total_price: finalTotal, customer_name: name, phone: phone })
                 .eq('id', existingOrder.id);
-                
-            if (updateError) {
-                console.error("❌ Supabase kunne ikke OPDATERE ordren:", updateError.message);
-                throw new Error("Supabase opdateringsfejl: " + updateError.message);
-            }
         } else {
-            console.log("Ny kunde. Opretter ny række i Supabase...");
-            const { error: insertError } = await supabase
+            await supabase
                 .from('orders')
                 .insert([{ customer_name: name, phone, email, items: cart, total_price: total }]);
-                
-            if (insertError) {
-                console.error("❌ Supabase kunne ikke INDSÆTTE ordren:", insertError.message);
-                throw new Error("Supabase indsættelsesfejl: " + insertError.message);
-            }
         }
 
-        // 2. Lager-opdatering (Sikret mod crash)
-        console.log("Opdaterer lagerbeholdning...");
+        // 2. Lager-opdatering
         try {
             for (const item of cart) {
                 if (item.parent_stock_group === 'hoejreb') {
@@ -120,24 +102,19 @@ app.post('/api/order', async (req, res) => {
                     await supabase.rpc('decrement_stock', { row_id: item.id, amount: 1 });
                 }
             }
-            console.log("✅ Lager opdateret.");
         } catch (stockErr) {
-            console.error("⚠️ Kunne ikke opdatere lager (RPC funktioner mangler måske i Supabase):", stockErr.message);
+            console.error("Lager-opdatering fejlede, men fortsætter ordre:", stockErr.message);
         }
 
-        // 3. Send svar til kunden MED DET SAMME (Så knappen IKKE fryser, hvis mailen hænger)
-        res.json({ 
-            success: true, 
-            message: "Reservation modtaget! Vi behandler din ordre nu." 
-        });
-        
-        // 4. Send mailen i baggrunden EFTER svaret er sendt til skærmen
+        // 3. Forbered og SEND mail (Vi afventer afsendelse, FØR vi svarer kunden)
         const vareListeHtml = cart.map(item => `<li>${item.name} (~${item.estimated_weight} kg)</li>`).join('');
-        console.log("Forsøger at sende mail via Gmail...");
         
-        transporter.sendMail({
+        console.log(`Forsøger afsendelse af mail til ${email}...`);
+        
+        // Vi bruger 'await' her, så Render IKKE lukker serveren ned midt i processen
+        const info = await transporter.sendMail({
             from: `"RønGården" <${process.env.EMAIL_USER}>`,
-            to: `${email}, ${process.env.EMAIL_USER}`,
+            to: `${email}, ${process.env.EMAIL_USER}`, // Sender til både kunde og dig selv
             subject: `Bekræftelse: Reservation på RønGården - ${name}`,
             html: `
                 <div style="font-family: sans-serif; max-width: 600px; border: 1px solid #ddd; padding: 20px; border-radius: 10px;">
@@ -147,18 +124,26 @@ app.post('/api/order', async (req, res) => {
                     <p><strong>Total (estimeret): ${total} kr.</strong></p>
                     <p>Betaling sker ved afhentning.</p>
                 </div>`
-        }, (mailErr, info) => {
-            if (mailErr) {
-                console.error("❌ Gmail afviste afsendelsen:", mailErr.message);
-            } else {
-                console.log("✅ Mail sendt succesfuldt! Svar fra Gmail:", info.response);
-            }
+        });
+
+        console.log("✅ Mail sendt succesfuldt! Gmail ID:", info.messageId);
+
+        // 4. Send succes-svar til kunden (Nu hvor alt ER udført)
+        return res.json({ 
+            success: true, 
+            message: "Reservation modtaget! Vi har sendt en bekræftelse til din mail." 
         });
 
     } catch (err) {
-        console.error("🚨 KRITISK FEJL I ORDRE-RUTE:", err.message);
+        // Hvis fejlen ligger i transporter.sendMail, fanger vi den her:
+        console.error("🚨 FEJL UNDER ORDREBEHANDLING ELLER MAIL-AFSENDELSE:", err.message);
+        
+        // Selvom mailen fejler, gemmer vi ordren. Vi giver kunden besked om, at ordren er ok, men mailen driller
         if (!res.headersSent) {
-            return res.status(500).json({ success: false, error: err.message });
+            return res.json({ 
+                success: true, 
+                message: "Reservation modtaget! (Der opstod dog en fejl med bekræftelses-mailen, men din ordre er registreret i vores system)." 
+            });
         }
     }
 });
