@@ -66,79 +66,102 @@ app.get('/api/products', async (req, res) => {
 // --- ORDRE RUTE ---
 app.post('/api/order', async (req, res) => {
     const { name, phone, email, cart, total } = req.body;
+    console.log("=== NY ORDRE MODTAGET ===");
+    console.log("Kunde:", name, email, phone);
 
     try {
-        // 1. Gem eller opdater i Supabase
+        // 1. Gem i Supabase (Vi pakker det ind, så vi kan fange præcise DB-fejl)
+        console.log("Forbinder til Supabase...");
         const { data: existingOrder, error: findError } = await supabase
             .from('orders')
             .select('*')
             .eq('email', email)
             .maybeSingle();
 
-        if (findError) throw new Error("Supabase fejl: " + findError.message);
+        if (findError) {
+            console.error("❌ Supabase kunne ikke søge efter ordre:", findError.message);
+            throw new Error("Supabase søgefejl: " + findError.message);
+        }
 
         if (existingOrder) {
+            console.log("Kunde fundet i forvejen. Opdaterer eksisterende ordre...");
             const currentItems = Array.isArray(existingOrder.items) ? existingOrder.items : [];
             const finalItems = [...currentItems, ...cart];
             const finalTotal = Number(existingOrder.total_price || 0) + Number(total);
             
-            await supabase
+            const { error: updateError } = await supabase
                 .from('orders')
                 .update({ items: finalItems, total_price: finalTotal, customer_name: name, phone: phone })
                 .eq('id', existingOrder.id);
+                
+            if (updateError) {
+                console.error("❌ Supabase kunne ikke OPDATERE ordren:", updateError.message);
+                throw new Error("Supabase opdateringsfejl: " + updateError.message);
+            }
         } else {
-            await supabase
+            console.log("Ny kunde. Opretter ny række i Supabase...");
+            const { error: insertError } = await supabase
                 .from('orders')
                 .insert([{ customer_name: name, phone, email, items: cart, total_price: total }]);
-        }
-
-        // 2. Lager-opdatering
-        for (const item of cart) {
-            if (item.parent_stock_group === 'hoejreb') {
-                await supabase.rpc('decrement_hoejreb_stock', { amount_to_subtract: item.stock_weight || 1 });
-            } else {
-                await supabase.rpc('decrement_stock', { row_id: item.id, amount: 1 });
+                
+            if (insertError) {
+                console.error("❌ Supabase kunne ikke INDSÆTTE ordren:", insertError.message);
+                throw new Error("Supabase indsættelsesfejl: " + insertError.message);
             }
         }
 
-        // 3. Forbered mail-indhold
-        const vareListeHtml = cart.map(item => `<li>${item.name} (~${item.estimated_weight} kg)</li>`).join('');
-
-        // 4. Send mail (RETTET: Bruger nu await, så Render ikke lukker processen før afsendelse)
-        console.log(`Forsøger at sende mail til kunde (${email}) og sælger (${process.env.EMAIL_USER})...`);
+        // 2. Lager-opdatering (Sikret mod crash)
+        console.log("Opdaterer lagerbeholdning...");
         try {
-            await transporter.sendMail({
-                from: `"RønGården" <${process.env.EMAIL_USER}>`,
-                to: `${email}, ${process.env.EMAIL_USER}`,
-                subject: `Bekræftelse: Reservation på RønGården - ${name}`,
-                html: `
-                    <div style="font-family: sans-serif; max-width: 600px; border: 1px solid #ddd; padding: 20px; border-radius: 10px;">
-                        <h2 style="color: #2d5a27;">Tak for din reservation, ${name}!</h2>
-                        <p>Vi har modtaget din bestilling på følgende:</p>
-                        <ul>${vareListeHtml}</ul>
-                        <p><strong>Total (estimeret): ${total} kr.</strong></p>
-                        <p>Betaling sker ved afhentning. Vi sender en mail så snart kødet er klar.</p>
-                    </div>`
-            });
-            console.log("✅ Mail blev sendt afsted uden problemer!");
-        } catch (mailErr) {
-            console.error("❌ Kritisk fejl under afsendelse af mail via Gmail:", mailErr);
-            // Vi vælger ikke at crashe hele ordren her, så kunden stadig ser en succes-skærm
+            for (const item of cart) {
+                if (item.parent_stock_group === 'hoejreb') {
+                    await supabase.rpc('decrement_hoejreb_stock', { amount_to_subtract: item.stock_weight || 1 });
+                } else {
+                    await supabase.rpc('decrement_stock', { row_id: item.id, amount: 1 });
+                }
+            }
+            console.log("✅ Lager opdateret.");
+        } catch (stockErr) {
+            console.error("⚠️ Kunne ikke opdatere lager (RPC funktioner mangler måske i Supabase):", stockErr.message);
         }
 
-        // 5. Send succes-svar
-        return res.json({ 
+        // 3. Send svar til kunden MED DET SAMME (Så knappen IKKE fryser, hvis mailen hænger)
+        res.json({ 
             success: true, 
-            message: "Reservation modtaget! Vi har sendt en bekræftelse til din mail." 
+            message: "Reservation modtaget! Vi behandler din ordre nu." 
+        });
+        
+        // 4. Send mailen i baggrunden EFTER svaret er sendt til skærmen
+        const vareListeHtml = cart.map(item => `<li>${item.name} (~${item.estimated_weight} kg)</li>`).join('');
+        console.log("Forsøger at sende mail via Gmail...");
+        
+        transporter.sendMail({
+            from: `"RønGården" <${process.env.EMAIL_USER}>`,
+            to: `${email}, ${process.env.EMAIL_USER}`,
+            subject: `Bekræftelse: Reservation på RønGården - ${name}`,
+            html: `
+                <div style="font-family: sans-serif; max-width: 600px; border: 1px solid #ddd; padding: 20px; border-radius: 10px;">
+                    <h2 style="color: #2d5a27;">Tak for din reservation, ${name}!</h2>
+                    <p>Vi har modtaget din bestilling på følgende:</p>
+                    <ul>${vareListeHtml}</ul>
+                    <p><strong>Total (estimeret): ${total} kr.</strong></p>
+                    <p>Betaling sker ved afhentning.</p>
+                </div>`
+        }, (mailErr, info) => {
+            if (mailErr) {
+                console.error("❌ Gmail afviste afsendelsen:", mailErr.message);
+            } else {
+                console.log("✅ Mail sendt succesfuldt! Svar fra Gmail:", info.response);
+            }
         });
 
     } catch (err) {
-        console.error("Fejl i order-rute:", err);
+        console.error("🚨 KRITISK FEJL I ORDRE-RUTE:", err.message);
         if (!res.headersSent) {
-            return res.status(500).json({ success: false, error: "Fejl: " + err.message });
+            return res.status(500).json({ success: false, error: err.message });
         }
     }
-}); 
+});
 
 // --- ADMIN NOTIFIKATIONER ---
 app.post('/api/admin/notify-ready', async (req, res) => {
