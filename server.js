@@ -308,7 +308,7 @@ app.get('/', (req, res) => {
                     </div>
                     <div class="info-item">
                         <h4>🚜 Afhentning</h4>
-                        <p>Varerne afhentes direkte på RønGården efter aftale. Du modtager en bekræftelse pr. mail.</p>
+                        <p>Varerne afhentes direkte på RønGården efter aftale.</p>
                     </div>
                 </div>
                 <div id="product-list-inner" class="product-grid">Henter varer...</div>
