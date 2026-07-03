@@ -55,7 +55,16 @@ function groupCartForEmail(cart) {
 
 app.get('/api/products', async (req, res) => {
     try {
-        const { data, error } = await supabase.from('products').select('*').order('name');
+        const { category } = req.query; // Henter f.eks. ?category=Aeg fra hjemmesiden
+        
+        let query = supabase.from('products').select('*').order('name');
+        
+        // Hvis hjemmesiden beder om en specifik underfane, filtrerer vi i Supabase
+        if (category) {
+            query = query.eq('category', category);
+        }
+
+        const { data, error } = await query;
         if (error) throw error;
         res.json(data);
     } catch (err) {
