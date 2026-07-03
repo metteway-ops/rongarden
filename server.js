@@ -1,5 +1,3 @@
-require('dotenv').config();
-
 console.log("Tjekker miljø-variabler:");
 console.log("EMAIL_USER er:", process.env.EMAIL_USER);
 console.log("EMAIL_PASS er:", process.env.EMAIL_PASS ? "Fundet (skjult)" : "IKKE FUNDET ❌");
@@ -17,48 +15,45 @@ app.use(express.static('public'));
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 const transporter = nodemailer.createTransport({
-    host: '74.125.140.108', 
-    port: 587,
-    secure: false, 
+    service: 'gmail',
     auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    },
-    tls: {
-        servername: '://gmail.com' 
-    },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 10000
+        pass: process.env.EMAIL_PASS // Husk: App Password her!
+    }
 });
 
-
-
-
-// FORSIDE: Sender automatisk kunden videre til produktsiden
-app.get('/', (req, res) => {
-    res.redirect('/produkter');
+// Verificer mail-konfiguration
+transporter.verify(function (error, success) {
+    if (error) {
+        console.log("❌ Mail-fejl: Forbindelsen til Gmail fejlede!");
+        console.log(error);
+    } else {
+        console.log("✅ Mail-systemet er klar til at sende!");
+    }
 });
 
-
-
-
-
+// Hjælpefunktion til at gruppere varer til PDF'en
+function groupCartForEmail(cart) {
+    return cart.reduce((acc, item) => {
+        if (!acc[item.name]) {
+            acc[item.name] = { 
+                count: 0, 
+                price: item.price, 
+                estWeight: item.estimated_weight,
+                totalPrice: 0 
+            };
+        }
+        acc[item.name].count += 1;
+        acc[item.name].totalPrice += (item.price * (item.estimated_weight || 1));
+        return acc;
+    }, {});
+}
 
 // --- API RUTER ---
 
 app.get('/api/products', async (req, res) => {
     try {
-        const { category } = req.query; // Henter f.eks. ?category=aeg fra hjemmesiden
-        
-        let query = supabase.from('products').select('*').order('name');
-        
-        // Hvis hjemmesiden beder om en specifik underfane, filtrerer vi i Supabase
-        if (category) {
-            query = query.eq('category', category);
-        }
-
-        const { data, error } = await query;
+        const { data, error } = await supabase.from('products').select('*').order('name');
         if (error) throw error;
         res.json(data);
     } catch (err) {
@@ -109,7 +104,7 @@ app.post('/api/order', async (req, res) => {
             console.error("Lager-opdatering fejlede, men fortsætter ordre:", stockErr.message);
         }
 
-        // 3. Forbered og SEND mail
+// 3. Forbered og SEND mail
         const vareListeHtml = cart.map(item => `<li>${item.name} (~${item.estimated_weight} kg)</li>`).join('');
         
         console.log(`Sender bekræftelse til kunden: ${email}`);
@@ -153,8 +148,10 @@ app.post('/api/order', async (req, res) => {
         });
 
     } catch (err) {
+        // Hvis fejlen ligger i transporter.sendMail, fanger vi den her:
         console.error("🚨 FEJL UNDER ORDREBEHANDLING ELLER MAIL-AFSENDELSE:", err.message);
         
+        // Selvom mailen fejler, gemmer vi ordren. Vi giver kunden besked om, at ordren er ok, men mailen driller
         if (!res.headersSent) {
             return res.json({ 
                 success: true, 
@@ -198,100 +195,16 @@ app.post('/api/admin/notify-ready', async (req, res) => {
 
 // --- FRONTEND VIEWS ---
 
-// KUNDENS PRODUKTSIDE (MED UNDERFANER)
-// KUNDENS PRODUKTSIDE (MED UNDERFANER)
-app.get('/produkter', (req, res) => {
+app.get('/admin-gaarden', (req, res) => {
     res.send(`
     <!DOCTYPE html>
     <html lang="da">
     <head>
         <meta charset="UTF-8">
-        <title>Gårdbutik | RønGården</title>
+        <title>Admin | RønGården</title>
         <style>
-            body { font-family: sans-serif; background: #f9f7f2; margin: 0; padding: 20px; color: #333; }
-            .container { max-width: 1000px; margin: 0 auto; }
-            h1 { color: #2d5a27; text-align: center; }
-            
-            /* Underfaner / Kategori-knapper */
-            .tabs { display: flex; justify-content: center; gap: 10px; margin-bottom: 30px; }
-            .tab-btn { background: white; border: 2px solid #2d5a27; color: #2d5a27; padding: 10px 20px; border-radius: 25px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-            .tab-btn.active, .tab-btn:hover { background: #2d5a27; color: white; }
-            
-            /* Produkt-grid */
-            .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
-            .product-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); text-align: center; border: 1px solid #eee; }
-            .product-card h3 { margin: 10px 0; color: #2d5a27; }
-            .price { font-size: 1.2em; font-weight: bold; margin: 10px 0; }
+            body { font-family: sans-serif; background: #f9f7f2; display: flex; align-items: center; justify-content: center; height: 100vh; }
+            .box { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; }
+            input { width: 100%; padding: 10px; margin: 15px 0; border-radius: 8px; border: 1px solid #ccc; }
+            button { background: #2d5a27; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; }
         </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>Vores Råvarer på RønGården</h1>
-            
-            <!-- Underfaner under "Produkter" -->
-            <div class="tabs">
-                <button class="tab-btn active" onclick="loadProducts('')">Vis alle</button>
-                <button class="tab-btn" onclick="loadProducts('aeg')">Æg</button>
-                <button class="tab-btn" onclick="loadProducts('frugt_groent')">Frugt & Grønt</button>
-                <button class="tab-btn" onclick="loadProducts('koed')">Kød</button>
-            </div>
-
-            <div class="grid" id="product-container">
-                <!-- Varer indlæses dynamisk her via JavaScript -->
-            </div>
-        </div>
-
-        <script>
-            // Hent varer automatisk baseret på aktiv fane
-            async function loadProducts(category) {
-                // Opdater aktiv styling på knapperne
-                const buttons = document.querySelectorAll('.tab-btn');
-                buttons.forEach(btn => btn.classList.remove('active'));
-                event.target.classList.add('active');
-
-                try {
-                    // Kald den opdaterede backend API-rute
-                    const url = category ? '/api/products?category=' + category : '/api/products';
-                    const response = await fetch(url);
-                    const products = await response.json();
-                    
-                    const container = document.getElementById('product-container');
-                    container.innerHTML = '';
-
-                    if(products.length === 0) {
-                        container.innerHTML = '<p style="text-align:center; grid-column: 1/-1;">Udsolgt i denne kategori lige nu... 🌿</p>';
-                        return;
-                    }
-
-                    products.forEach(p => {
-                        // Tjek om varen tilhører kategorien 'aeg' for at ændre prisenheden
-                        const priceUnit = p.category === 'aeg' ? 'kr/bakke' : 'kr.';
-                        
-                        const card = document.createElement('div');
-                        card.className = 'product-card';
-                        card.innerHTML = \`
-                            <h3>\${p.name}</h3>
-                            <p style="color: #666; font-size: 0.9em;">Est. vægt: \${p.estimated_weight || 0} kg</p>
-                            <p class="price">\${p.price} \${priceUnit}</p>
-                        \`;
-                        container.appendChild(card);
-                    });
-                } catch (err) {
-                    console.error("Fejl ved hentning af produkter:", err);
-                }
-            }
-
-            // Indlæs alle varer når siden åbnes første gang
-            window.onload = () => loadProducts('');
-        </script>
-    </body>
-    </html>
-    `);
-});
-
-// Start serveren (Sørg for at denne blok står helt til sidst!)
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`RønGården online på port ${PORT}`);
-});
-
