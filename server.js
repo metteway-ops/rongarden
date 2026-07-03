@@ -18,7 +18,30 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
+    portconst transporter = nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 587, // Skiftet til port 587 (ofte mere stabil på Render)
+    secure: false, // false for port 587
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    },
+    // TVING IPV4: Dette forhindrer ENETUNREACH IPv6 fejlen
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000
+});
+
+// Verificer mail-konfiguration UDEN at crashe serveren hvis det fejler
+transporter.verify(function (error, success) {
+    if (error) {
+        console.log("⚠️ Mail-advarsel: Forbindelsen til Gmail driller i opstarten.");
+        console.log("Fejlkode:", error.code);
+    } else {
+        console.log("✅ Mail-systemet er klar til at sende!");
+    }
+});
+: 465,
     secure: true, // Bruger SSL/TLS på port 465
     auth: {
         user: process.env.EMAIL_USER,
@@ -299,3 +322,10 @@ app.get('/produkter', (req, res) => {
     </html>
     `);
 });
+
+// Start serveren (Sørg for at denne blok står helt til sidst!)
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`RønGården online på port ${PORT}`);
+});
+
