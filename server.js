@@ -17,20 +17,24 @@ app.use(express.static('public'));
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    portconst transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587, // Skiftet til port 587 (ofte mere stabil på Render)
-    secure: false, // false for port 587
+    // Direkte IPv4 adresse til Google SMTP for at omgå Render IPv6 fejl
+    host: '74.125.140.108', 
+    port: 587,
+    secure: false, // false da vi bruger port 587
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     },
-    // TVING IPV4: Dette forhindrer ENETUNREACH IPv6 fejlen
+    tls: {
+        // Da vi forbinder via IP-adresse i stedet for et domænenavn,
+        // skal vi acceptere at certifikatet er udstedt til smtp.gmail.com
+        servername: 'smtp.gmail.com' 
+    },
     connectionTimeout: 10000,
     greetingTimeout: 10000,
     socketTimeout: 10000
 });
+
 
 // Verificer mail-konfiguration UDEN at crashe serveren hvis det fejler
 transporter.verify(function (error, success) {
