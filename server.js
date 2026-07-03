@@ -17,15 +17,21 @@ app.use(express.static('public'));
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // Bruger SSL/TLS på port 465
+    host: '74.125.140.108', 
+    port: 587,
+    secure: false, 
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     },
-    connectionTimeout: 10000 // Giver serveren 10 sekunder til at oprette forbindelse
+    tls: {
+        servername: '://gmail.com' 
+    },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000
 });
+
 
 
 
