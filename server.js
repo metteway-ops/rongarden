@@ -33,6 +33,18 @@ const transporter = nodemailer.createTransport({
 });
 
 
+
+
+// FORSIDE: Sender automatisk kunden videre til produktsiden
+app.get('/', (req, res) => {
+    res.redirect('/produkter');
+});
+
+
+
+
+
+
 // --- API RUTER ---
 
 app.get('/api/products', async (req, res) => {
