@@ -205,6 +205,7 @@ app.post('/api/admin/notify-ready', async (req, res) => {
 // --- FRONTEND VIEWS ---
 
 // KUNDENS PRODUKTSIDE (MED UNDERFANER)
+// KUNDENS PRODUKTSIDE (MED UNDERFANER)
 app.get('/produkter', (req, res) => {
     res.send(`
     <!DOCTYPE html>
@@ -255,3 +256,41 @@ app.get('/produkter', (req, res) => {
                 event.target.classList.add('active');
 
                 try {
+                    // Kald den opdaterede backend API-rute
+                    const url = category ? '/api/products?category=' + category : '/api/products';
+                    const response = await fetch(url);
+                    const products = await response.json();
+                    
+                    const container = document.getElementById('product-container');
+                    container.innerHTML = '';
+
+                    if(products.length === 0) {
+                        container.innerHTML = '<p style="text-align:center; grid-column: 1/-1;">Udsolgt i denne kategori lige nu... 🌿</p>';
+                        return;
+                    }
+
+                    products.forEach(p => {
+                        // Tjek om varen tilhører kategorien 'aeg' for at ændre prisenheden
+                        const priceUnit = p.category === 'aeg' ? 'kr/bakke' : 'kr.';
+                        
+                        const card = document.createElement('div');
+                        card.className = 'product-card';
+                        card.innerHTML = \`
+                            <h3>\${p.name}</h3>
+                            <p style="color: #666; font-size: 0.9em;">Est. vægt: \${p.estimated_weight || 0} kg</p>
+                            <p class="price">\${p.price} \${priceUnit}</p>
+                        \`;
+                        container.appendChild(card);
+                    });
+                } catch (err) {
+                    console.error("Fejl ved hentning af produkter:", err);
+                }
+            }
+
+            // Indlæs alle varer når siden åbnes første gang
+            window.onload = () => loadProducts('');
+        </script>
+    </body>
+    </html>
+    `);
+});
