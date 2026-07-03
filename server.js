@@ -17,60 +17,22 @@ app.use(express.static('public'));
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 const transporter = nodemailer.createTransport({
-    host: '74.125.140.108', 
-    port: 587,
-    secure: false, 
+    service: 'gmail',
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     },
     tls: {
-        servername: '://gmail.com' 
-    },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 10000
-});
-
-
-
-
-// Verificer mail-konfiguration
-transporter.verify(function (error, success) {
-    if (error) {
-        console.log("❌ Mail-fejl: Forbindelsen til Gmail fejlede!");
-        console.log(error);
-    } else {
-        console.log("✅ Mail-systemet er klar til at sende!");
+        rejectUnauthorized: false
     }
 });
 
-// Hjælpefunktion til at gruppere varer til PDF'en
-function groupCartForEmail(cart) {
-    return cart.reduce((acc, item) => {
-        if (!acc[item.name]) {
-            acc[item.name] = { 
-                count: 0, 
-                price: item.price, 
-                estWeight: item.estimated_weight,
-                totalPrice: 0 
-            };
-        }
-        acc[item.name].count += 1;
-        acc[item.name].totalPrice += (item.price * (item.estimated_weight || 1));
-        return acc;
-    }, {});
-}
-
 // --- API RUTER ---
-
 app.get('/api/products', async (req, res) => {
     try {
-        const { category } = req.query; // Henter f.eks. ?category=aeg fra hjemmesiden
-        
+        const { category } = req.query;
         let query = supabase.from('products').select('*').order('name');
         
-        // Hvis hjemmesiden beder om en specifik underfane, filtrerer vi i Supabase
         if (category) {
             query = query.eq('category', category);
         }
@@ -83,20 +45,16 @@ app.get('/api/products', async (req, res) => {
     }
 });
 
-// --- ORDRE RUTE ---
 app.post('/api/order', async (req, res) => {
     const { name, phone, email, cart, total } = req.body;
-    console.log("=== NY ORDRE MODTAGET ===");
-
     try {
-        // 1. Gem i Supabase
         const { data: existingOrder, error: findError } = await supabase
             .from('orders')
             .select('*')
             .eq('email', email)
             .maybeSingle();
 
-        if (findError) throw new Error("Supabase søgefejl: " + findError.message);
+        if (findError) throw findError;
 
         if (existingOrder) {
             const currentItems = Array.isArray(existingOrder.items) ? existingOrder.items : [];
@@ -113,161 +71,84 @@ app.post('/api/order', async (req, res) => {
                 .insert([{ customer_name: name, phone, email, items: cart, total_price: total }]);
         }
 
-        // 2. Lager-opdatering
-        try {
-            for (const item of cart) {
-                if (item.parent_stock_group === 'hoejreb') {
-                    await supabase.rpc('decrement_hoejreb_stock', { amount_to_subtract: item.stock_weight || 1 });
-                } else {
-                    await supabase.rpc('decrement_stock', { row_id: item.id, amount: 1 });
-                }
-            }
-        } catch (stockErr) {
-            console.error("Lager-opdatering fejlede, men fortsætter ordre:", stockErr.message);
-        }
-
-        // 3. Forbered og SEND mail
-        const vareListeHtml = cart.map(item => `<li>${item.name} (~${item.estimated_weight} kg)</li>`).join('');
-        
-        console.log(`Sender bekræftelse til kunden: ${email}`);
-        
-        // Mail 1: Til Kunden
-        await transporter.sendMail({
-            from: `"RønGården" <${process.env.EMAIL_USER}>`,
-            to: email, // KUN til kunden
-            subject: `Bekræftelse: Reservation på RønGården - ${name}`,
-            html: `
-                <div style="font-family: sans-serif; max-width: 600px; border: 1px solid #ddd; padding: 20px; border-radius: 10px;">
-                    <h2 style="color: #2d5a27;">Tak for din reservation, ${name}!</h2>
-                    <p>Vi har modtaget din bestilling på følgende:</p>
-                    <ul>${vareListeHtml}</ul>
-                    <p><strong>Total (estimeret): ${total} kr.</strong></p>
-                    <p>Betaling sker ved afhentning.</p>
-                </div>`
-        });
-
-        console.log(`Sender kopi til admin: ${process.env.EMAIL_USER}`);
-
-        // Mail 2: Til Dig Selv (Admin-notifikation)
-        await transporter.sendMail({
-            from: `"RønGården System" <${process.env.EMAIL_USER}>`,
-            to: process.env.EMAIL_USER, // KUN til dig selv
-            subject: `🚨 NY RESERVATION: ${name}`,
-            html: `<h3>Ny reservation modtaget!</h3>
-                   <p><b>Navn:</b> ${name}</p>
-                   <p><b>E-mail:</b> ${email}</p>
-                   <p><b>Telefon:</b> ${phone}</p>
-                   <ul>${vareListeHtml}</ul>
-                   <p><b>Total:</b> ${total} kr.</p>`
-        });
-
-        console.log("✅ Begge mails afsendt og godkendt af Gmail!");
-
-        // 4. Send succes-svar til kunden
-        return res.json({ 
-            success: true, 
-            message: "Reservation modtaget! Vi har sendt en bekræftelse til din mail." 
-        });
-
+        return res.json({ success: true, message: "Reservation modtaget!" });
     } catch (err) {
-        console.error("🚨 FEJL UNDER ORDREBEHANDLING ELLER MAIL-AFSENDELSE:", err.message);
-        
-        if (!res.headersSent) {
-            return res.json({ 
-                success: true, 
-                message: "Reservation modtaget! (Der opstod dog en fejl med bekræftelses-mailen, men din ordre er registreret i vores system)." 
-            });
-        }
+        return res.status(500).json({ error: err.message });
     }
 });
 
-// --- ADMIN NOTIFIKATIONER ---
-app.post('/api/admin/notify-ready', async (req, res) => {
-    const { password } = req.body;
-    if (password !== process.env.ADMIN_PASSWORD) {
-        return res.status(401).json({ error: "Forkert kodeord!" });
-    }
+// --- FRONTEND VIEWS (Det nye, flotte design) ---
 
-    try {
-        const { data: customers, error } = await supabase.from('orders').select('email, customer_name');
-        if (error) throw error;
-
-        const uniqueCustomers = Array.from(new Map(customers.map(c => [c.email, c])).values());
-
-        const emailPromises = uniqueCustomers.map(customer => {
-            return transporter.sendMail({
-                from: `"RønGården" <${process.env.EMAIL_USER}>`,
-                to: customer.email,
-                subject: "Opdatering: Kødet er snart klar på RønGården 🌿",
-                html: `<h3>Hej ${customer.customer_name}</h3>
-                       <p> Kødet er klar til afhentning <b> torsdag d. 14. maj </b>.</p>
-                       <p>Venlig hilsen<br>RønGården</p>`
-            });
-        });
-
-        await Promise.all(emailPromises);
-        res.json({ success: true, message: `Sendt til ${uniqueCustomers.length} kunder!` });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+app.get('/', (req, res) => {
+    res.redirect('/produkter');
 });
 
-
-// --- FRONTEND VIEWS ---
-
-// KUNDENS PRODUKTSIDE (MED UNDERFANER)
-// KUNDENS PRODUKTSIDE (MED UNDERFANER)
 app.get('/produkter', (req, res) => {
     res.send(`
     <!DOCTYPE html>
     <html lang="da">
     <head>
         <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Gårdbutik | RønGården</title>
         <style>
-            body { font-family: sans-serif; background: #f9f7f2; margin: 0; padding: 20px; color: #333; }
-            .container { max-width: 1000px; margin: 0 auto; }
-            h1 { color: #2d5a27; text-align: center; }
+            :root { --primary: #2d5a27; --primary-hover: #1e3d1a; --bg: #fdfbf7; --card-bg: #ffffff; --text: #2c3e50; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); margin: 0; padding: 0; color: var(--text); }
             
-            /* Underfaner / Kategori-knapper */
-            .tabs { display: flex; justify-content: center; gap: 10px; margin-bottom: 30px; }
-            .tab-btn { background: white; border: 2px solid #2d5a27; color: #2d5a27; padding: 10px 20px; border-radius: 25px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-            .tab-btn.active, .tab-btn:hover { background: #2d5a27; color: white; }
+            /* Header / Banner */
+            .header { background: linear-gradient(rgba(45, 90, 39, 0.85), rgba(45, 90, 39, 0.95)), url('https://unsplash.com') center/cover; color: white; padding: 60px 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+            .header h1 { margin: 0; font-size: 2.8em; font-weight: 700; letter-spacing: 1px; text-shadow: 1px 1px 3px rgba(0,0,0,0.2); }
+            .header p { margin: 10px 0 0 0; font-size: 1.2em; opacity: 0.9; font-style: italic; }
+
+            .container { max-width: 1100px; margin: 40px auto; padding: 0 20px; }
+            
+            /* Navigations-underfaner */
+            .tabs { display: flex; justify-content: center; gap: 12px; margin-bottom: 40px; flex-wrap: wrap; }
+            .tab-btn { background: var(--card-bg); border: 2px solid var(--primary); color: var(--primary); padding: 12px 28px; border-radius: 30px; cursor: pointer; font-size: 1em; font-weight: 600; transition: all 0.2s ease; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+            .tab-btn.active, .tab-btn:hover { background: var(--primary); color: white; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(45,90,39,0.2); }
             
             /* Produkt-grid */
-            .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
-            .product-card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); text-align: center; border: 1px solid #eee; }
-            .product-card h3 { margin: 10px 0; color: #2d5a27; }
-            .price { font-size: 1.2em; font-weight: bold; margin: 10px 0; }
+            .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 30px; }
+            .product-card { background: var(--card-bg); padding: 25px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); text-align: center; border: 1px solid #f0ede6; transition: transform 0.3s ease, box-shadow 0.3s ease; display: flex; flex-direction: column; justify-content: space-between; }
+            .product-card:hover { transform: translateY(-5px); box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
+            .product-card h3 { margin: 0 0 10px 0; color: var(--primary); font-size: 1.4em; }
+            .weight { color: #888; font-size: 0.9em; margin-bottom: 15px; display: inline-block; background: #f3f0e9; padding: 4px 12px; border-radius: 12px; }
+            .price { font-size: 1.4em; font-weight: 700; color: var(--text); margin: 15px 0; }
+            
+            /* Flot knap til kurv */
+            .buy-btn { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; transition: background 0.2s; font-size: 0.95em; }
+            .buy-btn:hover { background: var(--primary-hover); }
         </style>
     </head>
     <body>
+        <div class="header">
+            <h1>RønGården Gårdbutik</h1>
+            <p>Friske råvarer direkte fra gården til dit køkken</p>
+        </div>
+
         <div class="container">
-            <h1>Vores Råvarer på RønGården</h1>
-            
-            <!-- Underfaner under "Produkter" -->
+            <!-- Flotte underfaner under "Produkter" -->
             <div class="tabs">
-                <button class="tab-btn active" onclick="loadProducts('')">Vis alle</button>
-                <button class="tab-btn" onclick="loadProducts('aeg')">Æg</button>
-                <button class="tab-btn" onclick="loadProducts('frugt_groent')">Frugt & Grønt</button>
-                <button class="tab-btn" onclick="loadProducts('koed')">Kød</button>
+                <button class="tab-btn active" onclick="loadProducts('', event)">Vis alle råvarer</button>
+                <button class="tab-btn" onclick="loadProducts('aeg', event)">Æg</button>
+                <button class="tab-btn" onclick="loadProducts('frugt_groent', event)">Frugt & Grønt</button>
+                <button class="tab-btn" onclick="loadProducts('koed', event)">Kød</button>
             </div>
 
             <div class="grid" id="product-container">
-                <!-- Varer indlæses dynamisk her via JavaScript -->
+                <!-- Varer indlæses dynamisk her -->
             </div>
         </div>
 
         <script>
-            // Hent varer automatisk baseret på aktiv fane
-            async function loadProducts(category) {
-                // Opdater aktiv styling på knapperne
-                const buttons = document.querySelectorAll('.tab-btn');
-                buttons.forEach(btn => btn.classList.remove('active'));
-                event.target.classList.add('active');
+            async function loadProducts(category, event) {
+                if(event) {
+                    const buttons = document.querySelectorAll('.tab-btn');
+                    buttons.forEach(btn => btn.classList.remove('active'));
+                    event.target.classList.add('active');
+                }
 
                 try {
-                    // Kald den opdaterede backend API-rute
                     const url = category ? '/api/products?category=' + category : '/api/products';
                     const response = await fetch(url);
                     const products = await response.json();
@@ -276,32 +157,42 @@ app.get('/produkter', (req, res) => {
                     container.innerHTML = '';
 
                     if(products.length === 0) {
-                        container.innerHTML = '<p style="text-align:center; grid-column: 1/-1;">Udsolgt i denne kategori lige nu... 🌿</p>';
+                        container.innerHTML = '<div style="text-align:center; grid-column: 1/-1; padding: 40px; color:#888;">🌿 Udsolgt i denne kategori lige nu. Vi pakker snart friske varer igen!</div>';
                         return;
                     }
 
                     products.forEach(p => {
-                        // Tjek om varen tilhører kategorien 'aeg' for at ændre prisenheden
+                        // Dynamisk enhed baseret på kategori
                         const priceUnit = p.category === 'aeg' ? 'kr/bakke' : 'kr.';
                         
                         const card = document.createElement('div');
                         card.className = 'product-card';
                         card.innerHTML = \`
-                            <h3>\${p.name}</h3>
-                            <p style="color: #666; font-size: 0.9em;">Est. vægt: \${p.estimated_weight || 0} kg</p>
-                            <p class="price">\${p.price} \${priceUnit}</p>
+                            <div>
+                                <h3>\${p.name}</h3>
+                                <span class="weight">Est. vægt: \${p.estimated_weight || 0} kg</span>
+                            </div>
+                            <div>
+                                <p class="price">\${p.price} \${priceUnit}</p>
+                                <button class="buy-btn">Reserver vare</button>
+                            </div>
                         \`;
                         container.appendChild(card);
                     });
                 } catch (err) {
-                    console.error("Fejl ved hentning af produkter:", err);
+                    console.error("Fejl ved indlæsning:", err);
                 }
             }
 
-            // Indlæs alle varer når siden åbnes første gang
             window.onload = () => loadProducts('');
         </script>
     </body>
     </html>
     `);
+});
+
+// --- START SERVEREN ---
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+    console.log(`RønGården online på port ${PORT}`);
 });
