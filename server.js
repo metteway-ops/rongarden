@@ -33,54 +33,6 @@ const transporter = nodemailer.createTransport({
 });
 
 
-
-// Verificer mail-konfiguration UDEN at crashe serveren hvis det fejler
-transporter.verify(function (error, success) {
-    if (error) {
-        console.log("⚠️ Mail-advarsel: Forbindelsen til Gmail driller i opstarten.");
-        console.log("Fejlkode:", error.code);
-    } else {
-        console.log("✅ Mail-systemet er klar til at sende!");
-    }
-});
-: 465,
-    secure: true, // Bruger SSL/TLS på port 465
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    },
-    connectionTimeout: 10000 // Giver serveren 10 sekunder til at oprette forbindelse
-});
-
-
-
-// Verificer mail-konfiguration
-transporter.verify(function (error, success) {
-    if (error) {
-        console.log("❌ Mail-fejl: Forbindelsen til Gmail fejlede!");
-        console.log(error);
-    } else {
-        console.log("✅ Mail-systemet er klar til at sende!");
-    }
-});
-
-// Hjælpefunktion til at gruppere varer til PDF'en
-function groupCartForEmail(cart) {
-    return cart.reduce((acc, item) => {
-        if (!acc[item.name]) {
-            acc[item.name] = { 
-                count: 0, 
-                price: item.price, 
-                estWeight: item.estimated_weight,
-                totalPrice: 0 
-            };
-        }
-        acc[item.name].count += 1;
-        acc[item.name].totalPrice += (item.price * (item.estimated_weight || 1));
-        return acc;
-    }, {});
-}
-
 // --- API RUTER ---
 
 app.get('/api/products', async (req, res) => {
