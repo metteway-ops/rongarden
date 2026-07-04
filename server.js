@@ -171,41 +171,55 @@ function getVintageLayout(title, subtitle, categoryKey) {
         <p>&copy; 2026 RønGården Gårdbutik.</p>
     </footer>
 
-    <script>
-        async function loadProducts(){
-            try {
-                const response = await fetch("/api/products?category=${categoryKey}");
-                const products = await response.json();
-                const container = document.getElementById("product-container");
-                container.innerHTML = "";
-                
-                if(products.length === 0){
-                    container.innerHTML = '<div style="text-align:center; grid-column:1/-1; padding:50px; font-style:italic; color:#777;">🌿 Alt udsolgt i denne kategori i dag. Vi pakker snart friske varer igen!</div>';
-                    return;
-                }
-                
-                products.forEach(p => {
-                    const unit = p.category === "aeg" ? "kr/bakke" : "kr.";
-                    // Gode standard-placeholders hvis billedet mangler i Supabase
-                    let fallbackImg = "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=500&q=80";
-                    if(p.category === 'koed') fallbackImg = "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=500&q=80";
-                    if(p.category === 'aeg') fallbackImg = "https://images.unsplash.com/photo-1506976785307-8732e854ad03?auto=format&fit=crop&w=500&q=80";
-                    
-                    const imgSrc = p.image_url || fallbackImg;
-                    const card = document.createElement("div");
-                    card.className = "product-card";
-                    card.innerHTML = "<div><img class='product-img' src='" + imgSrc + "' alt='" + p.name + "'><h3>" + p.name + "</h3><span class='weight'>Enhed: ~" + (p.estimated_weight || 0) + " kg</span></div><div><p class='price'>" + p.price + " " + unit + "</p><button class='buy-btn'>Reserver råvare</button></div>";
-                    container.appendChild(card);
-                });
-            } catch(err) {
-                console.error(err);
+<script>
+    async function loadProducts(){
+        try {
+            const response = await fetch("/api/products?category=${categoryKey}");
+            const products = await response.json();
+            const container = document.getElementById("product-container");
+            container.innerHTML = "";
+            
+            if(products.length === 0){
+                container.innerHTML = '<div style="text-align:center; grid-column:1/-1; padding:50px; font-style:italic; color:#777;">🌿 Alt udsolgt i denne kategori i dag. Vi pakker snart friske varer igen!</div>';
+                return;
             }
+            
+            products.forEach(p => {
+                // Tjekker om enheden er æg (bakke) eller andet (kr.)
+                const unit = p.category === "aeg" ? "kr/bakke" : "kr.";
+                
+                // --- NYT: Dynamisk enhedstekst ---
+                // Viser "12 stk" hvis det er æg, ellers "X kg"
+                const enhedTekst = p.category === "aeg" ? "12 stk" : "~" + (p.estimated_weight || 0) + " kg";
+                
+                // Gode standard-placeholders hvis billedet mangler i Supabase
+                let fallbackImg = "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=500&q=80";
+                if(p.category === 'koed') fallbackImg = "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=500&q=80";
+                if(p.category === 'aeg') fallbackImg = "https://images.unsplash.com/photo-1506976785307-8732e854ad03?auto=format&fit=crop&w=500&q=80";
+                
+                const imgSrc = p.image_url || fallbackImg;
+                const card = document.createElement("div");
+                card.className = "product-card";
+                
+                // Indsætter 'enhedTekst' i HTML'en i stedet for den gamle fastlåste vægt
+                card.innerHTML = "<div><img class='product-img' src='" + imgSrc + "' alt='" + p.name + "'><h3>" + p.name + "</h3><span class='weight'>Enhed: " + enhedTekst + "</span></div><div><p class='price'>" + p.price + " " + unit + "</p><button class='buy-btn'>Reserver råvare</button></div>";
+                
+                container.appendChild(card);
+            });
+        } catch(err) {
+            console.error(err);
         }
-        window.onload = loadProducts;
-    </script>
+    }
+    window.onload = loadProducts;
+</script>
 </body>
 </html>`;
 }
+
+
+
+
+
 
 
 // --- VISNINGER / PAGES ---
