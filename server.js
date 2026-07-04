@@ -45,7 +45,7 @@ app.get('/api/products', async (req, res) => {
     }
 });
 
-// --- FRONTEND VIEWS (Premium Gårdbutik Design) ---
+// --- FRONTEND VIEWS ---
 
 app.get('/', (req, res) => {
     res.send(`
@@ -54,7 +54,7 @@ app.get('/', (req, res) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>RønGården | Økologisk Gårdbutik & Råvarer</title>
+        <title>RønGården | Økologisk Gårdbutik</title>
         <style>
             :root { 
                 --primary: #1e3f20; 
@@ -68,17 +68,17 @@ app.get('/', (req, res) => {
             body { font-family: 'Georgia', serif; background-color: var(--bg-light); margin: 0; color: var(--text-dark); line-height: 1.6; padding-top: 80px; }
             h1, h2, h3 { font-family: 'Playfair Display', serif; font-weight: 400; margin: 0; }
 
-            /* Elegant Fast Topmenu */
+            /* Fast Topmenu placeret øverst til højre */
             .navbar { position: fixed; top: 0; left: 0; right: 0; background: rgba(255, 255, 255, 0.98); padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 20px rgba(0,0,0,0.03); z-index: 1000; border-bottom: 1px solid rgba(0,0,0,0.05); }
             .nav-logo { font-size: 1.5em; font-weight: bold; color: var(--primary); text-decoration: none; letter-spacing: 2px; }
             .nav-links { display: flex; gap: 30px; }
-            .nav-links a { color: var(--text-dark); text-decoration: none; font-size: 0.9em; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-family: sans-serif; transition: color 0.3s; }
+            .nav-links a { color: var(--text-dark); text-decoration: none; font-size: 0.9em; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-family: sans-serif; transition: color 0.3s; cursor: pointer; }
             .nav-links a:hover { color: var(--accent); }
 
-            /* Stor Eksklusiv Hero Forside */
-            .hero { height: 75vh; background: linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.25)), url('https://unsplash.com') center/cover; display: flex; flex-direction: column; justify-content: center; align-items: center; color: var(--white); text-align: center; padding: 20px; }
+            /* Stor Eksklusiv Hero / Velkomst */
+            .hero { height: 70vh; background: linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.25)), url('https://unsplash.com') center/cover; display: flex; flex-direction: column; justify-content: center; align-items: center; color: var(--white); text-align: center; padding: 20px; }
             .hero h1 { font-size: 4.5em; text-shadow: 2px 2px 15px rgba(0,0,0,0.4); margin-bottom: 15px; font-style: italic; }
-            .hero p { font-size: 1.4em; max-width: 700px; text-shadow: 1px 1px 8px rgba(0,0,0,0.4); margin: 0; font-family: 'Georgia', serif; font-style: italic; opacity: 0.95; }
+            .hero p { font-size: 1.4em; max-width: 700px; text-shadow: 1px 1px 8px rgba(0,0,0,0.4); margin: 0; font-style: italic; opacity: 0.95; }
 
             /* Om Os Hovedsektion */
             .section { padding: 100px 20px; max-width: 1200px; margin: 0 auto; }
@@ -94,7 +94,7 @@ app.get('/', (req, res) => {
             .meta-box p { margin: 0; font-size: 1em; color: var(--text-dark); line-height: 1.5; }
             .about-image img { width: 100%; border-radius: 4px; box-shadow: 0 15px 40px rgba(0,0,0,0.06); border: 1px solid #e6dfd3; }
 
-            /* Eksklusiv Råvare-shop Sektion */
+            /* Webshop Råvarer Sektion */
             .shop-section { background-color: var(--white); border-top: 1px solid #e8e4da; border-bottom: 1px solid #e8e4da; }
             .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 40px; margin-top: 20px; }
             
@@ -172,3 +172,4 @@ app.get('/', (req, res) => {
 
         <!-- Elegant Landlig Footer -->
         <footer class="footer">
+            <p>&copy; 2026 RønGården Gårdbutik. Alle rettigheder forbeholdes.</p>
