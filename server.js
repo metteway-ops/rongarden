@@ -186,7 +186,7 @@ function getVintageLayout(title, subtitle, categoryKey) {
             
             products.forEach(p => {
                 // Tjekker om enheden er æg (bakke) eller andet (kr.)
-                const unit = p.category === "aeg" ? "kr/bakke" : "kr.";
+                const unit = p.category === "aeg" ? "kr/bakke" : "kr/kg";
                 
                 // --- NYT: Dynamisk enhedstekst ---
                 // Viser "12 stk" hvis det er æg, ellers "X kg"
