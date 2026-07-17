@@ -50,7 +50,7 @@ function getVintageLayout(title, subtitle, categoryKey) {
     if (categoryKey === 'aeg') heroImg = "https://images.unsplash.com/photo-1516448620398-c5f44bf9f441?auto=format&fit=crop&w=1600&q=80";
     if (categoryKey === 'frugt_groent') heroImg = "https://images.unsplash.com/photo-1566385208903-f3c2e645a54e?auto=format&fit=crop&w=1600&q=80";
 
-    return `<!DOCTYPE html>
+    return +<!DOCTYPE html>
 <html lang="da">
 <head>
     <meta charset="UTF-8">
@@ -212,14 +212,14 @@ function getVintageLayout(title, subtitle, categoryKey) {
     const imgSrc = p.image_url || fallbackImg;
     
     // Håndtering af felter hvis de er tomme i databasen
-    const descHtml = p.description ? `<p class='product-description'>${p.description}</p>` : "";
-    const prepHtml = p.preparation_info ? `<div class='preparation-info'><strong>Tilberedning:</strong><br>${p.preparation_info}</div>` : "";
+    const descHtml = p.description ? +<p class='product-description'>${p.description}</p>+ : "";
+    const prepHtml = p.preparation_info ? +<div class='preparation-info'><strong>Tilberedning:</strong><br>${p.preparation_info}</div>+ : "";
 
     const card = document.createElement("div");
     card.className = "product-card";
     
     // Opdateret HTML struktur med de nye felter
-    card.innerHTML = `
+    card.innerHTML = +
         <div>
             <img class='product-img' src='${imgSrc}' alt='${p.name}'>
             <h3>${p.name}</h3>
@@ -229,7 +229,7 @@ function getVintageLayout(title, subtitle, categoryKey) {
         <div>
             <p class='price'>${p.price}${unit}</p>
             <button class='buy-btn'>Reserver råvare</button>
-        </div>`;
+        </div>+;
     
     container.appendChild(card);
 });
@@ -240,7 +240,7 @@ function getVintageLayout(title, subtitle, categoryKey) {
     window.onload = loadProducts;
 </script>
 </body>
-</html>`;
+</html>+;
 }
 
 
@@ -253,7 +253,7 @@ function getVintageLayout(title, subtitle, categoryKey) {
 
 // 1. Forside (Om Os)
 app.get('/', (req, res) => {
-    res.send(`<!DOCTYPE html>
+    res.send(+<!DOCTYPE html>
 <html lang="da">
 <head>
     <meta charset="UTF-8">
@@ -385,13 +385,13 @@ app.get('/', (req, res) => {
         <p>&copy; 2026 RønGården Gårdbutik. Alle rettigheder forbeholdes.</p>
     </footer>
 </body>
-</html>`);
+</html>+);
 });
 
 
 // 2. Unik side for Kød
 app.get('/koed', (req, res) => {
-    res.send(getVintageLayout('Friske Kødråvarer', 'Eksklusive udskæringer fra vores fritgående besætninger', 'koed'));
+    res.send(getVintageLayout('Friske Kødråvarer', 'Eksklusive udskæringer fra vores fritgående besætning', 'koed'));
 });
 
 // 3. Unik side for Æg
