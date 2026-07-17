@@ -201,27 +201,37 @@ function getVintageLayout(title, subtitle, categoryKey) {
             }
             
             products.forEach(p => {
-                // Tjekker om enheden er æg (bakke) eller andet (kr.)
-                const unit = p.category === "aeg" ? "kr/bakke" : "kr/kg";
-                
-                // --- NYT: Dynamisk enhedstekst ---
-                // Viser "12 stk" hvis det er æg, ellers "X kg"
-                const enhedTekst = p.category === "aeg" ? "12 stk" : "~" + (p.estimated_weight || 0) + " kg";
-                
-                // Gode standard-placeholders hvis billedet mangler i Supabase
-                let fallbackImg = "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=500&q=80";
-                if(p.category === 'koed') fallbackImg = "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=500&q=80";
-                if(p.category === 'aeg') fallbackImg = "https://images.unsplash.com/photo-1506976785307-8732e854ad03?auto=format&fit=crop&w=500&q=80";
-                
-                const imgSrc = p.image_url || fallbackImg;
-                const card = document.createElement("div");
-                card.className = "product-card";
-                
-                // Indsætter 'enhedTekst' i HTML'en i stedet for den gamle fastlåste vægt
-                card.innerHTML = "<div><img class='product-img' src='" + imgSrc + "' alt='" + p.name + "'><h3>" + p.name + "</h3><span class='weight'>Enhed: " + enhedTekst + "</span></div><div><p class='price'>" + p.price + " " + unit + "</p><button class='buy-btn'>Reserver råvare</button></div>";
-                
-                container.appendChild(card);
-            });
+    const unit = p.category === "aeg" ? "kr/bakke" : "kr/kg";
+    const enhedTekst = p.category === "aeg" ? "12 stk" : "~" + (p.estimated_weight || 0) + " kg";
+    
+    let fallbackImg = "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=500&q=80";
+    if(p.category === 'koed') fallbackImg = "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=500&q=80";
+    if(p.category === 'aeg') fallbackImg = "https://images.unsplash.com/photo-1506976785307-8732e854ad03?auto=format&fit=crop&w=500&q=80";
+    
+    const imgSrc = p.image_url || fallbackImg;
+    
+    // Håndtering af felter hvis de er tomme i databasen
+    const descHtml = p.description ? `<p class='product-description'>${p.description}</p>` : "";
+    const prepHtml = p.preparation_info ? `<div class='preparation-info'><strong>Tilberedning:</strong><br>${p.preparation_info}</div>` : "";
+
+    const card = document.createElement("div");
+    card.className = "product-card";
+    
+    // Opdateret HTML struktur med de nye felter
+    card.innerHTML = `
+        <div>
+            <img class='product-img' src='${imgSrc}' alt='${p.name}'>
+            <h3>${p.name}</h3>
+            <span class='weight'>Enhed: ${enhedTekst}</span>
+            ${descHtml}${prepHtml}
+        </div>
+        <div>
+            <p class='price'>${p.price}${unit}</p>
+            <button class='buy-btn'>Reserver råvare</button>
+        </div>`;
+    
+    container.appendChild(card);
+});
         } catch(err) {
             console.error(err);
         }
