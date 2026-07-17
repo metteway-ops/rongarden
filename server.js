@@ -148,6 +148,22 @@ function getVintageLayout(title, subtitle, categoryKey) {
             border-top: 4px solid var(--gold); font-family: "Courier New", Courier, monospace; 
             margin-top: 60px; 
         }
+
+.product-description { 
+    font-size: 0.9em; 
+    color: #555; 
+    margin: 10px 0; 
+    font-style: italic; 
+}
+.preparation-info { 
+    font-size: 0.85em; 
+    color: var(--vintage-green); 
+    background: #fdfaf2; 
+    padding: 8px; 
+    border: 1px dashed var(--gold); 
+    margin: 10px 0; 
+}
+
     </style>
 </head>
 <body>
