@@ -45,12 +45,12 @@ app.get('/api/products', async (req, res) => {
 // --- FÆLLES VINTAGE DESIGN SKABELON (MED PRODUKTBILLEDER) ---
 function getVintageLayout(title, subtitle, categoryKey) {
     // Vælg et unikt, flot herobillede baseret på kategorien
-    let heroImg = "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=1600&q=80"; // Standard
+    let heroImg = "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=1600&q=80"; 
     if (categoryKey === 'koed') heroImg = "https://images.unsplash.com/photo-1603048588665-791ca8aea617?auto=format&fit=crop&w=1600&q=80";
     if (categoryKey === 'aeg') heroImg = "https://images.unsplash.com/photo-1516448620398-c5f44bf9f441?auto=format&fit=crop&w=1600&q=80";
     if (categoryKey === 'frugt_groent') heroImg = "https://images.unsplash.com/photo-1566385208903-f3c2e645a54e?auto=format&fit=crop&w=1600&q=80";
 
-    return +<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html lang="da">
 <head>
     <meta charset="UTF-8">
@@ -189,60 +189,41 @@ function getVintageLayout(title, subtitle, categoryKey) {
     </footer>
 
 <script>
-    async function loadProducts(){
-        try {
-            const response = await fetch("/api/products?category=${categoryKey}");
-            const products = await response.json();
-            const container = document.getElementById("product-container");
-            container.innerHTML = "";
-            
-            if(products.length === 0){
-                container.innerHTML = '<div style="text-align:center; grid-column:1/-1; padding:50px; font-style:italic; color:#777;">🌿 Alt udsolgt i denne kategori i dag. Vi pakker snart friske varer igen!</div>';
-                return;
+        async function loadProducts(){
+            try {
+                const response = await fetch("/api/products?category=${categoryKey}");
+                const products = await response.json();
+                const container = document.getElementById("product-container");
+                container.innerHTML = "";
+                
+                products.forEach(function(p) {
+                    var unit = (p.category === "aeg") ? "kr/bakke" : "kr/kg";
+                    var enhedTekst = (p.category === "aeg") ? "12 stk" : "~" + (p.estimated_weight || 0) + " kg";
+                    
+                    var fallbackImg = "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=500&q=80";
+                    if(p.category === 'koed') fallbackImg = "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=500&q=80";
+                    if(p.category === 'aeg') fallbackImg = "https://images.unsplash.com/photo-1506976785307-8732e854ad03?auto=format&fit=crop&w=500&q=80";
+                    
+                    var imgSrc = p.image_url || fallbackImg;
+                    
+                    var descHtml = p.description ? "<p class='product-description'>" + p.description + "</p>" : "";
+                    var prepHtml = p.preparation_info ? "<div class='preparation-info'><strong>Tilberedning:</strong><br>" + p.preparation_info + "</div>" : "";
+
+                    var card = document.createElement("div");
+                    card.className = "product-card";
+                    card.innerHTML = "<div><img class='product-img' src='" + imgSrc + "' alt='" + p.name + "'><h3>" + p.name + "</h3><span class='weight'>Enhed: " + enhedTekst + "</span>" + descHtml + prepHtml + "</div><div><p class='price'>" + p.price + " " + unit + "</p><button class='buy-btn'>Reserver råvare</button></div>";
+                    container.appendChild(card);
+                });
+            } catch(err) {
+                console.error(err);
             }
-            
-            products.forEach(p => {
-    const unit = p.category === "aeg" ? "kr/bakke" : "kr/kg";
-    const enhedTekst = p.category === "aeg" ? "12 stk" : "~" + (p.estimated_weight || 0) + " kg";
-    
-    let fallbackImg = "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=500&q=80";
-    if(p.category === 'koed') fallbackImg = "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=500&q=80";
-    if(p.category === 'aeg') fallbackImg = "https://images.unsplash.com/photo-1506976785307-8732e854ad03?auto=format&fit=crop&w=500&q=80";
-    
-    const imgSrc = p.image_url || fallbackImg;
-    
-    // Håndtering af felter hvis de er tomme i databasen
-    const descHtml = p.description ? +<p class='product-description'>${p.description}</p>+ : "";
-    const prepHtml = p.preparation_info ? +<div class='preparation-info'><strong>Tilberedning:</strong><br>${p.preparation_info}</div>+ : "";
-
-    const card = document.createElement("div");
-    card.className = "product-card";
-    
-    // Opdateret HTML struktur med de nye felter
-    card.innerHTML = +
-        <div>
-            <img class='product-img' src='${imgSrc}' alt='${p.name}'>
-            <h3>${p.name}</h3>
-            <span class='weight'>Enhed: ${enhedTekst}</span>
-            ${descHtml}${prepHtml}
-        </div>
-        <div>
-            <p class='price'>${p.price}${unit}</p>
-            <button class='buy-btn'>Reserver råvare</button>
-        </div>+;
-    
-    container.appendChild(card);
-});
-        } catch(err) {
-            console.error(err);
         }
-    }
-    window.onload = loadProducts;
-</script>
+        window.onload = loadProducts;
+    </script>
 </body>
-</html>+;
+</html>`; 
+    // HER ER BACKTICK (`) SLUT.
 }
-
 
 
 
@@ -253,7 +234,7 @@ function getVintageLayout(title, subtitle, categoryKey) {
 
 // 1. Forside (Om Os)
 app.get('/', (req, res) => {
-    res.send(+<!DOCTYPE html>
+    res.send(`<!DOCTYPE html>
 <html lang="da">
 <head>
     <meta charset="UTF-8">
@@ -385,13 +366,13 @@ app.get('/', (req, res) => {
         <p>&copy; 2026 RønGården Gårdbutik. Alle rettigheder forbeholdes.</p>
     </footer>
 </body>
-</html>+);
+</html>`);
 });
 
 
 // 2. Unik side for Kød
 app.get('/koed', (req, res) => {
-    res.send(getVintageLayout('Friske Kødråvarer', 'Eksklusive udskæringer fra vores fritgående besætning', 'koed'));
+    res.send(getVintageLayout('Friske Kødråvarer', 'Eksklusive udskæringer fra vores fritgående besætninger', 'koed'));
 });
 
 // 3. Unik side for Æg
