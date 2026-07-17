@@ -89,13 +89,19 @@ function getVintageLayout(title, subtitle, categoryKey) {
         } 
         .nav-links a:hover, .nav-links a.active { color: var(--gold); } 
         
-        .hero { 
-            height: 40vh; 
-            background: linear-gradient(rgba(41,64,46, 0.55), rgba(41,64,46, 0.55)), url("${heroImg}") center/cover no-repeat; 
-            display: flex; flex-direction: column; justify-content: center; align-items: center; 
-            color: var(--paper-white); text-align: center; padding: 20px; 
-            border-bottom: 4px solid var(--vintage-green); 
-        } 
+ /* Hero-sektion med stemningsbillede */
+.hero { 
+    height: 60vh; 
+    /* Her ændres URL'en til dit lokale billede i public-mappen */
+    background: linear-gradient(rgba(41,64,46, 0.45), rgba(41,64,46, 0.45)), 
+                url("/Økosystem.jpg") center/cover no-repeat; 
+    display: flex; flex-direction: column; justify-content: center; align-items: center; 
+    color: var(--paper-white); text-align: center; padding: 20px; 
+    border-bottom: 4px solid var(--vintage-green); 
+}       
+
+
+
         .hero h1 { font-size: 3.8em; color: var(--paper-white); text-shadow: 2px 2px 10px rgba(0,0,0,0.3); } 
         .hero p { font-size: 1.2em; opacity: 0.9; margin-top: 10px; font-style: italic; } 
         
@@ -185,7 +191,7 @@ function getVintageLayout(title, subtitle, categoryKey) {
         <div class="grid" id="product-container"></div>
     </main>
     <footer class="footer">
-        <p>&copy; 2026 RønGården Gårdbutik.</p>
+        <p>&copy; 2026 RønGården.</p>
     </footer>
 
 <script>
@@ -352,11 +358,11 @@ Hver del af gården tjener et formål: Grønkålen, ærterne og kornet bliver br
                 <div class="about-meta">
                     <div class="meta-box">
                         <h4>Gårdbutikkens timer</h4>
-                        <p>Torsdage kl. 14:00 - 18:00<br>Lørdage kl. 09:00 - 13:00</p>
+                        <p>Tirsdag kl. 14:00 - 19:00<br>Torsdag kl. 14:00 - 19:00<br>Lørdag kl. 10:00 - 16:00</p>
                     </div>
                     <div class="meta-box">
                         <h4>Her findes vi</h4>
-                        <p>RønGården Gårdbutik<br>Vores Gade 12, 1234 Gårdby</p>
+                        <p>RønGården<br>Trehøjevej 79, 6973 Ørnhøj</p>
                     </div>
                 </div>
             </div>
