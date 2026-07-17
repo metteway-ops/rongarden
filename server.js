@@ -162,6 +162,7 @@ function getVintageLayout(title, subtitle, categoryKey) {
     padding: 8px; 
     border: 1px dashed var(--gold); 
     margin: 10px 0; 
+    text-align: left;
 }
 
     </style>
