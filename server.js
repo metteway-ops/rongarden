@@ -400,7 +400,7 @@ app.get('/koed', (req, res) => {
 
 // 3. Unik side for Æg
 app.get('/aeg', (req, res) => {
-    res.send(getVintageLayout('Frisklagte Gårdeg', 'Morgenfriske æg sorteret direkte i bakker', 'aeg'));
+    res.send(getVintageLayout('Frisklagte Græsæg', 'Morgenfriske æg sorteret direkte i bakker', 'aeg'));
 });
 
 // 4. Unik side for Frugt & Grønt
