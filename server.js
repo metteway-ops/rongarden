@@ -40,7 +40,26 @@ app.get('/api/products', async (req, res) => {
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
+});app.post('/api/reserve', async (req, res) => {
+    const { produkt, kunde } = req.body;
+
+    try {
+        await transporter.sendMail({
+            from: process.env.EMAIL_USER,
+            to: process.env.EMAIL_USER, // Sender til dig selv
+            subject: 'Ny reservation: ' + produkt,
+            text: `Kunden ${kunde} ønsker at reservere: ${produkt}`
+        });
+        res.json({ message: "Tak! Din reservation er modtaget." });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Der skete en fejl. Prøv igen senere." });
+    }
 });
+
+
+
+
 
 // --- FÆLLES VINTAGE DESIGN SKABELON (MED PRODUKTBILLEDER) ---
 function getVintageLayout(title, subtitle, categoryKey) {
@@ -205,7 +224,25 @@ function getVintageLayout(title, subtitle, categoryKey) {
     </footer>
 
 <script>
-        async function loadProducts(){
+
+    async function reserverProdukt(produktNavn) {
+        const navn = prompt("Indtast dit navn:");
+        if (!navn) return;
+
+        alert("Sender reservation for: " + produktNavn);
+        
+        // Her sender vi data til din server (som vi skal lave nu)
+        const response = await fetch('/api/reserve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ produkt: produktNavn, kunde: navn })
+        });
+
+        const result = await response.json();
+        alert(result.message);
+    }
+        
+async function loadProducts(){
             try {
                 const response = await fetch("/api/products?category=${categoryKey}");
                 const products = await response.json();
@@ -227,7 +264,7 @@ function getVintageLayout(title, subtitle, categoryKey) {
 
                     var card = document.createElement("div");
                     card.className = "product-card";
-                    card.innerHTML = "<div><img class='product-img' src='" + imgSrc + "' alt='" + p.name + "'><h3>" + p.name + "</h3><span class='weight'>Enhed: " + enhedTekst + "</span>" + descHtml + prepHtml + "</div><div><p class='price'>" + p.price + " " + unit + "</p><button class='buy-btn'>Reserver råvare</button></div>";
+                    card.innerHTML = "<div><img class='product-img' src='" + imgSrc + "' alt='" + p.name + "'><h3>" + p.name + "</h3><span class='weight'>Enhed: " + enhedTekst + "</span>" + descHtml + prepHtml + "</div><div><p class='price'>" + p.price + " " + unit + "</p><button class='buy-btn' onclick='reserverProdukt("${p.name}")'>Reserver råvare</button></div>";
                     container.appendChild(card);
                 });
             } catch(err) {
