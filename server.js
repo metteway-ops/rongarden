@@ -94,7 +94,7 @@ function getVintageLayout(title, subtitle, categoryKey) {
     height: 60vh; 
     /* Her ændres URL'en til dit lokale billede i public-mappen */
     background: linear-gradient(rgba(41,64,46, 0.45), rgba(41,64,46, 0.45)), 
-                url("/Økosystem.jpg") center/cover no-repeat; 
+                url("/Okosystem.jpg") center/cover no-repeat; 
     display: flex; flex-direction: column; justify-content: center; align-items: center; 
     color: var(--paper-white); text-align: center; padding: 20px; 
     border-bottom: 4px solid var(--vintage-green); 
