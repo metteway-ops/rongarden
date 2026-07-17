@@ -243,38 +243,37 @@ function getVintageLayout(title, subtitle, categoryKey) {
     }
         
 async function loadProducts(){
-    try {
-        // Vi bruger '+' i stedet for ${} for at undgå at serveren forvirres
-        const response = await fetch("/api/products?category=" + "${categoryKey}");
-        
-        const products = await response.json();
-        const container = document.getElementById("product-container");
-        container.innerHTML = "";
-        
-        products.forEach(function(p) {
-            var unit = (p.category === "aeg") ? "kr/bakke" : "kr/kg";
-            var enhedTekst = (p.category === "aeg") ? "12 stk" : "~" + (p.estimated_weight || 0) + " kg";
-            
-            var fallbackImg = "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=500&q=80";
-            if(p.category === 'koed') fallbackImg = "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=500&q=80";
-            if(p.category === 'aeg') fallbackImg = "https://images.unsplash.com/photo-1506976785307-8732e854ad03?auto=format&fit=crop&w=500&q=80";
-            
-            var imgSrc = p.image_url || fallbackImg;
-            
-            var descHtml = p.description ? "<p class='product-description'>" + p.description + "</p>" : "";
-            var prepHtml = p.preparation_info ? "<div class='preparation-info'><strong>Tilberedning:</strong><br>" + p.preparation_info + "</div>" : "";
+            try {
+                // Her er den korrekte måde at skrive fetch på uden fejl:
+                const response = await fetch("/api/products?category=" + "${categoryKey}");
+                const products = await response.json();
+                const container = document.getElementById("product-container");
+                container.innerHTML = "";
+                
+                products.forEach(function(p) {
+                    var unit = (p.category === "aeg") ? "kr/bakke" : "kr/kg";
+                    var enhedTekst = (p.category === "aeg") ? "12 stk" : "~" + (p.estimated_weight || 0) + " kg";
+                    
+                    var fallbackImg = "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=500&q=80";
+                    if(p.category === 'koed') fallbackImg = "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=500&q=80";
+                    if(p.category === 'aeg') fallbackImg = "https://images.unsplash.com/photo-1506976785307-8732e854ad03?auto=format&fit=crop&w=500&q=80";
+                    
+                    var imgSrc = p.image_url || fallbackImg;
+                    
+                    var descHtml = p.description ? "<p class='product-description'>" + p.description + "</p>" : "";
+                    var prepHtml = p.preparation_info ? "<div class='preparation-info'><strong>Tilberedning:</strong><br>" + p.preparation_info + "</div>" : "";
 
-            var card = document.createElement("div");
-            card.className = "product-card";
-            // Din knap-linje her ser fin ud nu!
-            card.innerHTML = "<div><img class='product-img' src='" + imgSrc + "' alt='" + p.name + "'><h3>" + p.name + "</h3><span class='weight'>Enhed: " + enhedTekst + "</span>" + descHtml + prepHtml + "</div><div><p class='price'>" + p.price + " " + unit + "</p><button class='buy-btn' onclick='reserverProdukt(\"" + p.name + "\")'>Reserver råvare</button></div>";
-            container.appendChild(card);
-        });
-    } catch(err) {
-        console.error(err);
-    }
-}
-window.onload = loadProducts;
+                    var card = document.createElement("div");
+                    card.className = "product-card";
+                    card.innerHTML = "<div><img class='product-img' src='" + imgSrc + "' alt='" + p.name + "'><h3>" + p.name + "</h3><span class='weight'>Enhed: " + enhedTekst + "</span>" + descHtml + prepHtml + "</div><div><p class='price'>" + p.price + " " + unit + "</p><button class='buy-btn' onclick='reserverProdukt(\"" + p.name + "\")'>Reserver råvare</button></div>";
+                    container.appendChild(card);
+                });
+            } catch(err) {
+                console.error(err);
+            }
+        }
+        window.onload = loadProducts;
+
     </script>
 </body>
 </html>`; 
