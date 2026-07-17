@@ -370,8 +370,8 @@ Hver del af gården tjener et formål: Grønkålen, ærterne og kornet bliver br
                 </div>
             </div>
             <div class="about-image">
-                <img src="https://images.unsplash.com/photo-1595974482597-4b8da8879bc5?auto=format&fit=crop&w=800&q=80" alt="Gårdliv på RønGården">
-            </div>
+    <img src="/Okosystem.jpg" alt="Gårdliv på RønGården">
+</div>
         </div>
     </section>
 
