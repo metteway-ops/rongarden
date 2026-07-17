@@ -61,14 +61,24 @@ app.get('/api/products', async (req, res) => {
 
 
 
-
 // --- FÆLLES VINTAGE DESIGN SKABELON (MED PRODUKTBILLEDER) ---
 function getVintageLayout(title, subtitle, categoryKey) {
+    // Standard hero-billede (hvis ingen kategori matcher)
     let heroImg = "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=1600&q=80"; 
-    if (categoryKey === 'koed') heroImg = "https://images.unsplash.com/photo-1591604466107-ec97de577aff?auto=format&fit=crop&w=1600&q=80";
-    if (categoryKey === 'aeg') heroImg = "https://images.unsplash.com/photo-1524293581917-878a6d060c6a?auto=format&fit=crop&w=1600&q=80";
-    if (categoryKey === 'frugt_groent') heroImg = "https://images.unsplash.com/photo-1590779033100-9f60a05a013d?auto=format&fit=crop&w=1600&q=80";
-
+    
+    // Specifikke billeder for hver kategori
+    if (categoryKey === 'koed') {
+        // Røde Galloway køer
+        heroImg = "https://images.unsplash.com/photo-1591604466107-ec97de577aff?auto=format&fit=crop&w=1600&q=80";
+    }
+    if (categoryKey === 'aeg') {
+        // Sorte høns i det fri
+        heroImg = "https://images.unsplash.com/photo-1524293581917-878a6d060c6a?auto=format&fit=crop&w=1600&q=80";
+    }
+    if (categoryKey === 'frugt_groent') {
+        // Jordbær og kartofler
+        heroImg = "https://images.unsplash.com/photo-1590779033100-9f60a05a013d?auto=format&fit=crop&w=1600&q=80";
+    }
     return `<!DOCTYPE html>
 <html lang="da">
 <head>
@@ -76,24 +86,130 @@ function getVintageLayout(title, subtitle, categoryKey) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RønGården | ${title}</title>
     <style>
-        :root { --vintage-green: #29402e; --sage-green: #485c4d; --gold: #aa8e50; --cream-bg: #fdfaf2; --paper-white: #ffffff; --text-dark: #2c352d; }
-        body { font-family: "Georgia", serif; background-color: var(--cream-bg); margin: 0; padding-top: 80px; }
-        .navbar { position: fixed; top: 0; left: 0; right: 0; background: var(--paper-white); padding: 15px 50px; display: flex; justify-content: space-between; border-bottom: 3px double var(--gold); z-index: 1000; }
-        .hero { height: 40vh; background: linear-gradient(rgba(41,64,46, 0.55), rgba(41,64,46, 0.55)), url("${heroImg}") center/cover; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; border-bottom: 4px solid var(--vintage-green); text-align: center; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 40px; padding: 60px 20px; max-width: 1100px; margin: 0 auto; }
-        .product-card { background: white; padding: 25px; border: 1px solid #e3dac9; display: flex; flex-direction: column; justify-content: space-between; min-height: 460px; }
-        .product-img { width: 100%; height: 200px; object-fit: cover; margin-bottom: 15px; }
-        .buy-btn { background: var(--vintage-green); color: white; border: none; padding: 15px; cursor: pointer; width: 100%; font-weight: bold; text-transform: uppercase; }
+        :root { 
+            --vintage-green: #29402e; 
+            --sage-green: #485c4d; 
+            --gold: #aa8e50; 
+            --cream-bg: #fdfaf2; 
+            --paper-white: #ffffff; 
+            --text-dark: #2c352d; 
+        } 
+        * { box-sizing: border-box; } 
+        body { 
+            font-family: "Georgia", "Times New Roman", serif; 
+            background-color: var(--cream-bg); 
+            margin: 0; color: var(--text-dark); 
+            line-height: 1.7; padding-top: 80px; 
+        } 
+        h1, h2, h3 { font-weight: normal; margin: 0; color: var(--vintage-green); font-style: italic; } 
+        
+        .navbar { 
+            position: fixed; top: 0; left: 0; right: 0; 
+            background-color: var(--paper-white); padding: 15px 50px; 
+            display: flex; justify-content: space-between; align-items: center; 
+            box-shadow: 0 4px 20px rgba(41,64,46,0.05); z-index: 1000; 
+            border-bottom: 3px double var(--gold); 
+        } 
+        .nav-logo { font-size: 1.8em; color: var(--vintage-green); text-decoration: none; letter-spacing: 2px; font-style: italic; font-weight: bold; } 
+        .nav-links { display: flex; gap: 35px; } 
+        .nav-links a { 
+            color: var(--text-dark); text-decoration: none; font-size: 0.85em; font-weight: bold; 
+            text-transform: uppercase; letter-spacing: 1.5px; font-family: "Courier New", Courier, monospace; 
+        } 
+        .nav-links a:hover, .nav-links a.active { color: var(--gold); } 
+        
+ /* Hero-sektion med stemningsbillede */
+.hero { 
+    height: 60vh; 
+    /* Her ændres URL'en til dit lokale billede i public-mappen */
+    background: linear-gradient(rgba(41,64,46, 0.45), rgba(41,64,46, 0.45)), 
+                url("/Okosystem.jpg") center/cover no-repeat; 
+    display: flex; flex-direction: column; justify-content: center; align-items: center; 
+    color: var(--paper-white); text-align: center; padding: 20px; 
+    border-bottom: 4px solid var(--vintage-green); 
+}       
+
+
+
+        .hero h1 { font-size: 3.8em; color: var(--paper-white); text-shadow: 2px 2px 10px rgba(0,0,0,0.3); } 
+        .hero p { font-size: 1.2em; opacity: 0.9; margin-top: 10px; font-style: italic; } 
+        
+        .section { padding: 60px 20px; max-width: 1100px; margin: 0 auto; } 
+        
+        /* Flottere Produktkort Grid */
+        .grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+            gap: 40px; margin-top: 40px; 
+        } 
+        .product-card { 
+            background: var(--paper-white); 
+            border: 1px solid #e3dac9; 
+            padding: 25px; text-align: center; 
+            display: flex; flex-direction: column; justify-content: space-between; 
+            min-height: 460px; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.02);
+            transition: transform 0.2s, box-shadow 0.2s;
+        } 
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(41,64,46,0.08);
+        }
+        .product-img { 
+            width: 100%; height: 200px; object-fit: cover; 
+            border: 1px solid #e3dac9; margin-bottom: 15px; 
+        } 
+        .product-card h3 { font-size: 1.5em; margin-bottom: 8px; }
+        .weight { 
+            font-family: "Courier New", Courier, monospace; font-size: 0.8em; 
+            color: #666; background: #fdfaf2; padding: 4px 12px; 
+            display: inline-block; margin-bottom: 15px; border: 1px solid #e3dac9; 
+        } 
+        .price { font-size: 1.8em; color: var(--vintage-green); margin: 15px 0; font-weight: bold; } 
+        
+        .buy-btn { 
+            background: var(--vintage-green); color: var(--paper-white); 
+            border: none; padding: 15px; cursor: pointer; 
+            font-family: "Courier New", Courier, monospace; font-weight: bold; 
+            text-transform: uppercase; letter-spacing: 1.5px; width: 100%; 
+            transition: background 0.2s; 
+            border: 1px solid var(--vintage-green);
+        } 
+        .buy-btn:hover { background: var(--sage-green); } 
+        
+        .footer { 
+            background: var(--vintage-green); color: rgba(255,255,255,0.5); 
+            text-align: center; padding: 40px 20px; font-size: 0.9em; 
+            border-top: 4px solid var(--gold); font-family: "Courier New", Courier, monospace; 
+            margin-top: 60px; 
+        }
+
+.product-description { 
+    font-size: 0.9em; 
+    color: #555; 
+    margin: 10px 0; 
+    font-style: italic; 
+}
+.preparation-info { 
+    font-size: 0.85em; 
+    color: var(--vintage-green); 
+    background: #fdfaf2; 
+    padding: 8px; 
+    border: 1px dashed var(--gold); 
+    margin: 10px 0; 
+    text-align: left;
+}
+
     </style>
 </head>
 <body>
     <nav class="navbar">
-        <a href="/" style="font-size: 1.8em; color: var(--vintage-green); text-decoration: none;">RønGården</a>
+        <a href="/" class="nav-logo">RønGården</a>
         <div class="nav-links">
             <a href="/">Om Os</a>
-            <a href="/koed">Kød</a>
-            <a href="/aeg">Æg</a>
-            <a href="/frugt-og-groent">Frugt & Grønt</a>
+            <a href="/koed" class="${categoryKey === 'koed' ? 'active' : ''}">Kød</a>
+            <a href="/aeg" class="${categoryKey === 'aeg' ? 'active' : ''}">Æg</a>
+            <a href="/frugt-og-groent" class="${categoryKey === 'frugt_groent' ? 'active' : ''}">Frugt & Grønt</a>
         </div>
     </nav>
     <header class="hero">
@@ -103,42 +219,68 @@ function getVintageLayout(title, subtitle, categoryKey) {
     <main class="section">
         <div class="grid" id="product-container"></div>
     </main>
+    <footer class="footer">
+        <p>&copy; 2026 RønGården.</p>
+    </footer>
 
-    <script>
-        async function reserverProdukt(produktNavn) {
-            const navn = prompt("Indtast dit navn:");
-            if (!navn) return;
-            const response = await fetch('/api/reserve', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ produkt: produktNavn, kunde: navn })
-            });
-            const result = await response.json();
-            alert(result.message);
-        }
+<script>
 
-        async function loadProducts(){
-            try {
-                const response = await fetch("/api/products?category=" + "${categoryKey}");
-                const products = await response.json();
-                const container = document.getElementById("product-container");
-                container.innerHTML = "";
-                
-                products.forEach(function(p) {
-                    var unit = (p.category === "aeg") ? "kr/bakke" : "kr/kg";
-                    var enhedTekst = (p.category === "aeg") ? "12 stk" : "~" + (p.estimated_weight || 0) + " kg";
+    async function reserverProdukt(produktNavn) {
+        const navn = prompt("Indtast dit navn:");
+        if (!navn) return;
+
+        alert("Sender reservation for: " + produktNavn);
+        
+        // Her sender vi data til din server (som vi skal lave nu)
+        // Fjern citationstegnene omkring ${categoryKey}
+	const response = await fetch("/api/products?category=${categoryKey}");  
+        const result = await response.json();
+        alert(result.message);
+    }
+        
+// Sørg for at denne blok står helt rent inde i din getVintageLayout funktion
+async function loadProducts(){
+    try {
+        const response = await fetch("/api/products?category=" + "${categoryKey}");
+        const products = await response.json();
+        const container = document.getElementById("product-container");
+        container.innerHTML = "";
+        
+        products.forEach(function(p) {
+            var unit = (p.category === "aeg") ? "kr/bakke" : "kr/kg";
+            var enhedTekst = (p.category === "aeg") ? "12 stk" : "~" + (p.estimated_weight || 0) + " kg";
+            var fallbackImg = "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=500&q=80";
+            if(p.category === 'koed') fallbackImg = "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=500&q=80";
+            if(p.category === 'aeg') fallbackImg = "https://images.unsplash.com/photo-1506976785307-8732e854ad03?auto=format&fit=crop&w=500&q=80";
+            
+            var imgSrc = p.image_url || fallbackImg;
+            var descHtml = p.description ? "<p class='product-description'>" + p.description + "</p>" : "";
+            var prepHtml = p.preparation_info ? "<div class='preparation-info'><strong>Tilberedning:</strong><br>" + p.preparation_info + "</div>" : "";
+
+            var card = document.createElement("div");
+            card.className = "product-card";
+            card.innerHTML = "<div><img class='product-img' src='" + imgSrc + "' alt='" + p.name + "'><h3>" + p.name + "</h3><span class='weight'>Enhed: " + enhedTekst + "</span>" + descHtml + prepHtml + "</div><div><p class='price'>" + p.price + " " + unit + "</p><button class='buy-btn' onclick='reserverProdukt(\"" + p.name + "\")'>Reserver råvare</button></div>";
+            container.appendChild(card);
+        });
+    } catch(err) {
+        console.error(err);
+    }
+}
+window.onload = loadProducts;
                     var card = document.createElement("div");
                     card.className = "product-card";
-                    card.innerHTML = "<div><img class='product-img' src='" + (p.image_url || '') + "' alt='" + p.name + "'><h3>" + p.name + "</h3><p>" + enhedTekst + "</p></div>" +
-                                     "<div><p class='price'>" + p.price + " " + unit + "</p><button class='buy-btn' onclick='reserverProdukt(\"" + p.name + "\")'>Reserver råvare</button></div>";
+                    card.innerHTML = "<div><img class='product-img' src='" + imgSrc + "' alt='" + p.name + "'><h3>" + p.name + "</h3><span class='weight'>Enhed: " + enhedTekst + "</span>" + descHtml + prepHtml + "</div><div><p class='price'>" + p.price + " " + unit + "</p><button class='buy-btn' onclick='reserverProdukt(\"" + p.name + "\")'>Reserver råvare</button></div>";
                     container.appendChild(card);
                 });
-            } catch(err) { console.error(err); }
+            } catch(err) {
+                console.error(err);
+            }
         }
         window.onload = loadProducts;
+
     </script>
 </body>
-</html>`;
+</html>`; 
 }
 
 
@@ -200,7 +342,7 @@ app.get('/', (req, res) => {
         .hero { 
             height: 60vh; 
             background: linear-gradient(rgba(41,64,46, 0.45), rgba(41,64,46, 0.45)), 
-                        url("/oekosystem.jpg") center/cover no-repeat; 
+                        url("/Okosystem.jpg") center/cover no-repeat; 
             display: flex; flex-direction: column; justify-content: center; align-items: center; 
             color: var(--paper-white); text-align: center; padding: 20px; 
             border-bottom: 4px solid var(--vintage-green); 
