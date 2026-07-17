@@ -285,15 +285,18 @@ app.get('/', (req, res) => {
         } 
         .nav-links a:hover, .nav-links a.active { color: var(--gold); } 
         
-        /* Hero-sektion med stemningsbillede */
+
+/* Hero-sektion - Her er det gamle Unsplash-billede fjernet */
         .hero { 
             height: 60vh; 
             background: linear-gradient(rgba(41,64,46, 0.45), rgba(41,64,46, 0.45)), 
-                        url("https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=1600&q=80") center/cover no-repeat; 
+                        url("/oekosystem.jpg") center/cover no-repeat; 
             display: flex; flex-direction: column; justify-content: center; align-items: center; 
             color: var(--paper-white); text-align: center; padding: 20px; 
             border-bottom: 4px solid var(--vintage-green); 
-        } 
+        }    
+
+
         .hero h1 { font-size: 5em; color: var(--paper-white); font-style: italic; text-shadow: 2px 2px 15px rgba(0,0,0,0.4); margin-bottom: 10px; } 
         .hero p { font-size: 1.4em; font-style: italic; opacity: 0.95; max-width: 600px; text-shadow: 1px 1px 5px rgba(0,0,0,0.4); } 
         
