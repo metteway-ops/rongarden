@@ -245,7 +245,7 @@ function getVintageLayout(title, subtitle, categoryKey) {
 async function loadProducts(){
     try {
         // Her er der rettet til backticks (``), så ${categoryKey} bliver læst korrekt
-        const response = await fetch(`/api/products?category=${categoryKey}`);
+ 	const response = await fetch("/api/products?category=" + "${categoryKey}");
         const products = await response.json();
         const container = document.getElementById("product-container");
         container.innerHTML = "";
