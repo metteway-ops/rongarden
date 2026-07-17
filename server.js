@@ -342,7 +342,11 @@ app.get('/', (req, res) => {
         <div class="about-container">
             <div class="about-text">
                 <h3>Smagen af det ægte landliv</h3>
-                <p>Her på RønGården drives jorden og gårdbutikken ud fra stolte, traditionelle principper. Vi tror på, at ægte kvalitet kræver tid, omsorg og stor respekt for naturen. Vores dyr lever et sundt og frit liv på friske græsmarker under åben himmel, og vores afgrøder høstes nænsomt i hånden, når smagen er helt i top.</p>
+                <p>På RønGården drives landbruget som et tæt, naturligt kredsløb, hvor jorden, dyrene og familien spiller sammen. Vi er en familie på tre – mor, far og vores datter på 1 år – der værner om de gamle traditioner og respekten for naturen.
+
+Vores marker afgræsses af gallowaykøer, får, shetlandsponyer og høns. Det er deres naturlige tilstedeværelse, der giver næring til jorden, så vi hvert år kan høste jordbær, kartofler, ærter, korn og grønkål helt uden brug af kunstgødning. For at styrke biodiversiteten planter vi honningurt som efterafgrøde, hvilket er til stor gavn for de lokale bier.
+
+Hver del af gården tjener et formål: Grønkålen, ærterne og kornet bliver brugt som næringsrigt foder til vores høns, mens halmen fra kornet bliver til blød strøelse til dyrene. Hvert år udruger vi nye kyllinger; her sikrer vi en god dyrevelfærd og smag ved at lade hanerne vokse op over fire måneder, mens hønekyllingerne bliver en fast del af vores ægproduktion. I vores gårdbutik kan du købe årstidens friskeste jordbær, kartofler og frisklagte æg – alt sammen skabt med kærlighed til det ægte, bæredygtige landliv.</p>
                 <p>Vi har indrettet vores lille gårdbutik som en moderne tidslomme, hvor du let kan reservere dine råvarer online på forhånd. På den måde sikrer du dig altid ugentlige frisklagte æg, sæsonens sprødeste grønt og de fineste udskæringer.</p>
                 
                 <div class="about-meta">
@@ -372,7 +376,7 @@ app.get('/', (req, res) => {
 
 // 2. Unik side for Kød
 app.get('/koed', (req, res) => {
-    res.send(getVintageLayout('Friske Kødråvarer', 'Eksklusive udskæringer fra vores fritgående besætninger', 'koed'));
+    res.send(getVintageLayout('Kødråvarer', 'Eksklusive udskæringer fra vores fritgående besætninger', 'koed'));
 });
 
 // 3. Unik side for Æg
