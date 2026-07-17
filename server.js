@@ -44,12 +44,22 @@ app.get('/api/products', async (req, res) => {
 
 // --- FÆLLES VINTAGE DESIGN SKABELON (MED PRODUKTBILLEDER) ---
 function getVintageLayout(title, subtitle, categoryKey) {
-    // Vælg et unikt, flot herobillede baseret på kategorien
+    // Standard hero-billede (hvis ingen kategori matcher)
     let heroImg = "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=1600&q=80"; 
-    if (categoryKey === 'koed') heroImg = "https://images.unsplash.com/photo-1603048588665-791ca8aea617?auto=format&fit=crop&w=1600&q=80";
-    if (categoryKey === 'aeg') heroImg = "https://images.unsplash.com/photo-1516448620398-c5f44bf9f441?auto=format&fit=crop&w=1600&q=80";
-    if (categoryKey === 'frugt_groent') heroImg = "https://images.unsplash.com/photo-1566385208903-f3c2e645a54e?auto=format&fit=crop&w=1600&q=80";
-
+    
+    // Specifikke billeder for hver kategori
+    if (categoryKey === 'koed') {
+        // Røde Galloway køer
+        heroImg = "https://images.unsplash.com/photo-1591604466107-ec97de577aff?auto=format&fit=crop&w=1600&q=80";
+    }
+    if (categoryKey === 'aeg') {
+        // Sorte høns i det fri
+        heroImg = "https://images.unsplash.com/photo-1524293581917-878a6d060c6a?auto=format&fit=crop&w=1600&q=80";
+    }
+    if (categoryKey === 'frugt_groent') {
+        // Jordbær og kartofler
+        heroImg = "https://images.unsplash.com/photo-1590779033100-9f60a05a013d?auto=format&fit=crop&w=1600&q=80";
+    }
     return `<!DOCTYPE html>
 <html lang="da">
 <head>
